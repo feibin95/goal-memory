@@ -8,3 +8,5 @@ public/
 .next/
 .goal-memory/
 *.tsbuildinfo
+next-env.d.ts
+docs/ui-smoke.jpg
