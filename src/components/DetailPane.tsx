@@ -3,6 +3,13 @@ import { useState } from 'react';
 import type { Goal, Attempt } from '@/types';
 import { GoalDetailForm } from './GoalDetailForm';
 import { api } from '@/lib/api';
+function goalLabel(g: Goal, peers: Goal[]): string {
+  const hasDup = peers.some(p => p.id !== g.id && p.title === g.title);
+  const combined = `${g.title}・${g.background ?? ''}`;
+  const label = combined.length > 25 ? combined.slice(0, 25) + '…' : combined;
+  const suffix = hasDup ? `・${g.id.slice(0, 4)}` : '';
+  return `${label}${suffix}`;
+}
 
 interface Props {
   goal: Goal | null; goals: Record<string, Goal>; attempts: Attempt[];
@@ -14,29 +21,36 @@ interface NewGoalForm { title: string; background: string; successCriteria: stri
 export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, onDirtyChange }: Props) {
   const [addChildModal, setAddChildModal] = useState(false);
   const [addChildForm, setAddChildForm] = useState<NewGoalForm>({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
-  const [addChildDeps, setAddChildDeps] = useState('');
+  const [addChildDeps, setAddChildDeps] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasAddChildContent = addChildForm.title !== '' || addChildForm.background !== '' || addChildForm.successCriteria !== '' || addChildDeps !== '';
+  const hasAddChildContent = addChildForm.title !== '' || addChildForm.background !== '' || addChildForm.successCriteria !== '' || addChildDeps.length > 0;
   const closeAddChildModal = () => {
     if (hasAddChildContent && !window.confirm('已填写的内容将丢失，确认关闭？')) return;
     setAddChildModal(false);
     setAddChildForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
-    setAddChildDeps('');
+    setAddChildDeps([]);
   };
 
   const handleAddChild = async () => {
     if (!goal) return;
     setSubmitting(true); setError(null);
     try {
-      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parentIds: [goal.id], successCriteria: addChildForm.successCriteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps.split(',').map((s) => s.trim()).filter(Boolean) });
+      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parentIds: [goal.id], successCriteria: addChildForm.successCriteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps });
       setAddChildModal(false);
       setAddChildForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
-      setAddChildDeps('');
+      setAddChildDeps([]);
       onRefresh();
     } catch (e) { setError((e as Error).message); }
     finally { setSubmitting(false); }
+  };
+
+  // 兄弟节点 = 与新目标同父（即 goal）的其他已有子节点
+  const siblings = goal ? Object.values(goals).filter(g => g.parent_ids?.includes(goal.id)) : [];
+
+  const toggleDep = (id: string) => {
+    setAddChildDeps(prev => prev.includes(id) ? prev.filter(d => d !== id) : [...prev, id]);
   };
 
   return (
@@ -59,7 +73,21 @@ export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, on
                 <label>成本<input type="number" min={1} max={10} value={addChildForm.cost} onChange={(e) => setAddChildForm({ ...addChildForm, cost: Number(e.target.value) })} /></label>
                 <label>截止日期<input type="date" value={addChildForm.ddl} onChange={(e) => setAddChildForm({ ...addChildForm, ddl: e.target.value })} /></label>
               </div>
-              <label>依赖项（逗号分隔 ID）<input type="text" value={addChildDeps} onChange={(e) => setAddChildDeps(e.target.value)} placeholder="id1, id2, ..." /></label>
+              <div className="field-group">
+                <label className="field-label">依赖项（需先完成）</label>
+                {siblings.length === 0 ? (
+                  <span className="field-hint">暂无可选依赖项</span>
+                ) : (
+                  <div className="checkbox-list">
+                    {siblings.map(s => (
+                      <label key={s.id} className="checkbox-item">
+                        <input type="checkbox" checked={addChildDeps.includes(s.id)} onChange={() => toggleDep(s.id)} />
+                        {goalLabel(s, siblings)}
+                      </label>
+                    ))}
+                  </div>
+                )}
+              </div>
               {error && <span className="field-error">{error}</span>}
             </div>
             <div className="modal-actions">

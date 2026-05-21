@@ -32,7 +32,7 @@ function findAncestorPaths(
 }
 
 function renderNode(g: Goal): string[] {
-  const lines: string[] = [`**[${g.id}]** ${g.title}`];
+  const lines: string[] = [`**${g.title}**`];
   if (g.background) lines.push(`- 背景：${g.background}`);
   if (g.success_criteria) lines.push(`- 成功标准：${g.success_criteria}`);
   if (g.ddl) lines.push(`- DDL：${g.ddl}`);
@@ -88,7 +88,7 @@ export function buildContextPack(goalId: string): string | null {
   if (goal.dependencies.length > 0) {
     for (const depId of goal.dependencies) {
       const dep = goals.get(depId);
-      lines.push(dep ? `- [${dep.id}] ${dep.title}` : `- [${depId}] *(未知)*`);
+      lines.push(dep ? `- ${dep.title}` : `- *(未知)*`);
     }
   } else { lines.push('_无。_'); }
   lines.push('');
@@ -97,7 +97,7 @@ export function buildContextPack(goalId: string): string | null {
   lines.push('## 近期尝试');
   if (attempts.length > 0) {
     for (const a of attempts.slice(-5)) {
-      lines.push(`### 尝试 ${a.id}${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
+      lines.push(`### 尝试${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
       lines.push(`- **假设:** ${a.hypothesis}`, `- **行动:** ${a.action}`, `- **结果:** ${a.result}`);
     }
   } else { lines.push('_暂无尝试记录。_'); }
