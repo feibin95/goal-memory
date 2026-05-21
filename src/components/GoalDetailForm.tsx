@@ -109,6 +109,7 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
     try {
       await api.updateGoal(goal.id, values);
       if (parentsDirty) await api.updateParentIds(goal.id, parentIds);
+      form.reset(values);
       onSaved();
     }
     finally { setSaving(false); }
