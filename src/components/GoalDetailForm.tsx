@@ -1,5 +1,6 @@
 'use client';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { goalDetailSchema, type GoalDetailFormValues } from '@/lib/schema';
@@ -21,29 +22,78 @@ function mapGoalToForm(goal: Goal): GoalDetailFormValues {
   return { title: goal.title, background: goal.background, success_criteria: goal.success_criteria, status: goal.status, cost: goal.cost, ddl: goal.ddl, notes: goal.notes ?? [] };
 }
 
+function goalLabel(g: Goal, allGoals: Record<string, Goal>): string {
+  const hasDup = Object.values(allGoals).some(o => o.id !== g.id && o.title === g.title);
+  const combined = `${g.title}・${g.background ?? ''}`;
+  const label = combined.length > 25 ? combined.slice(0, 25) + '…' : combined;
+  const suffix = hasDup ? `・${g.id.slice(0, 4)}` : '';
+  return `${label}${suffix}`;
+}
+
+// 递归收集所有后代 id，防止选父节点时成环
+function collectDescendants(goalId: string, goals: Record<string, Goal>): Set<string> {
+  const result = new Set<string>();
+  const queue = [goalId];
+  while (queue.length > 0) {
+    const id = queue.pop()!;
+    for (const g of Object.values(goals)) {
+      if (g.parent_ids?.includes(id) && !result.has(g.id)) {
+        result.add(g.id);
+        queue.push(g.id);
+      }
+    }
+  }
+  return result;
+}
+
 export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAddChild, onDirtyChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [contextText, setContextText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // 父节点编辑状态（独立于 react-hook-form）
+  // 父节点编辑状态
   const [parentIds, setParentIds] = useState<string[]>(goal.parent_ids ?? []);
-  const [addParentInput, setAddParentInput] = useState('');
-  const [addParentError, setAddParentError] = useState<string | null>(null);
-  useEffect(() => { setParentIds(goal.parent_ids ?? []); setAddParentInput(''); setAddParentError(null); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const [parentSearch, setParentSearch] = useState('');
+  const [parentDropdownOpen, setParentDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
-  const handleAddParent = () => {
-    const id = addParentInput.trim();
-    if (!id) return;
-    if (id === goal.id) { setAddParentError('不能将自身设为父节点'); return; }
-    if (parentIds.includes(id)) { setAddParentError('该父节点已存在'); return; }
-    if (!goals[id]) { setAddParentError(`找不到 ID 为 "${id}" 的目标`); return; }
-    setParentIds([...parentIds, id]);
-    setAddParentInput('');
-    setAddParentError(null);
+  useEffect(() => {
+    setParentIds(goal.parent_ids ?? []);
+    setParentSearch('');
+    setParentDropdownOpen(false);
+  }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 点击下拉框外部关闭
+  useEffect(() => {
+    if (!parentDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(e.target as Node)) {
+        setParentDropdownOpen(false);
+        setParentSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [parentDropdownOpen]);
+
+  const descendants = collectDescendants(goal.id, goals);
+
+  // 候选父节点：排除自身、已选、后代
+  const parentCandidates = Object.values(goals).filter(g =>
+    g.id !== goal.id && !parentIds.includes(g.id) && !descendants.has(g.id)
+  );
+
+  const filteredCandidates = parentSearch.trim()
+    ? parentCandidates.filter(g => g.title.toLowerCase().includes(parentSearch.trim().toLowerCase()))
+    : parentCandidates;
+
+  const handleAddParent = (id: string) => {
+    setParentIds(prev => [...prev, id]);
+    setParentSearch('');
+    setParentDropdownOpen(false);
   };
 
-  const handleRemoveParent = (id: string) => setParentIds(parentIds.filter((p) => p !== id));
+  const handleRemoveParent = (id: string) => setParentIds(prev => prev.filter(p => p !== id));
 
   const parentsDirty = JSON.stringify(parentIds) !== JSON.stringify(goal.parent_ids ?? []);
 
@@ -138,18 +188,41 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
                   const p = goals[id];
                   return (
                     <span key={id} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
-                      {p ? p.title : id}{p ? ` · ${statusLabels[p.status]}` : ''}
+                      {p ? goalLabel(p, goals) : id}
                       <button type="button" onClick={() => handleRemoveParent(id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1 }} title="移除">×</button>
                     </span>
                   );
                 })}
               </div>
             )}
-            <div style={{ display: 'flex', gap: 6 }}>
-              <input type="text" value={addParentInput} onChange={(e) => { setAddParentInput(e.target.value); setAddParentError(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddParent(); } }} placeholder="输入目标 ID…" style={{ flex: 1 }} />
-              <button type="button" onClick={handleAddParent}>添加</button>
+            <div ref={dropdownRef} style={{ position: 'relative' }}>
+              <button type="button" onClick={() => { setParentDropdownOpen(o => !o); setParentSearch(''); }}>
+                添加父节点
+              </button>
+              {parentDropdownOpen && (
+                <div className="parent-dropdown">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="搜索目标标题…"
+                    value={parentSearch}
+                    onChange={(e) => setParentSearch(e.target.value)}
+                    className="parent-dropdown-search"
+                  />
+                  <ul className="parent-dropdown-list">
+                    {filteredCandidates.length === 0 ? (
+                      <li className="parent-dropdown-empty">无匹配目标</li>
+                    ) : (
+                      filteredCandidates.map(g => (
+                        <li key={g.id} className="parent-dropdown-item" onClick={() => handleAddParent(g.id)}>
+                          {goalLabel(g, goals)}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
-            {addParentError && <span className="field-error">{addParentError}</span>}
           </div>
           <div className="form-section">
             <h2>备注</h2>
@@ -162,7 +235,7 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
             </div>
             <div className="btn-group" style={{ marginLeft: 'auto' }}>
               <button type="button" className="danger" onClick={handleDelete}>删除</button>
-              <button type="submit" className="primary" disabled={saving || !isDirty}>
+              <button type="submit" className="primary" disabled={saving || (!isDirty && !parentsDirty)}>
                 {saving ? '保存中…' : '保存'}
               </button>
             </div>
@@ -183,7 +256,9 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
                 setTimeout(() => setCopied(false), 2000);
               }}>{copied ? '已复制 ✓' : '复制'}</button>
             </div>
-            <pre>{contextText}</pre>
+            <div className="md-body">
+              <ReactMarkdown>{contextText}</ReactMarkdown>
+            </div>
             <div className="modal-actions">
               <button type="button" onClick={() => { setContextText(null); setCopied(false); }}>关闭</button>
             </div>
