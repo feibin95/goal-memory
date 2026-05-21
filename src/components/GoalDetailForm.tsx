@@ -197,7 +197,7 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
             )}
             <div ref={dropdownRef} style={{ position: 'relative' }}>
               <button type="button" onClick={() => { setParentDropdownOpen(o => !o); setParentSearch(''); }}>
-                添加父节点
+                关联父目标
               </button>
               {parentDropdownOpen && (
                 <div className="parent-dropdown">
