@@ -24,6 +24,9 @@ export const api = {
   updateGoal: (id: string, data: GoalDetailFormValues) =>
     req<Goal>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
+  updateParentIds: (id: string, parentIds: string[]) =>
+    req<Goal>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify({ parent_ids: parentIds }) }),
+
   startGoal: (id: string) =>
     req<Goal>(`/api/goals/${id}/start`, { method: 'POST', body: JSON.stringify({}) }),
 

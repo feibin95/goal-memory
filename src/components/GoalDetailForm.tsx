@@ -26,16 +26,41 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
   const [contextText, setContextText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
+  // 父节点编辑状态（独立于 react-hook-form）
+  const [parentIds, setParentIds] = useState<string[]>(goal.parent_ids ?? []);
+  const [addParentInput, setAddParentInput] = useState('');
+  const [addParentError, setAddParentError] = useState<string | null>(null);
+  useEffect(() => { setParentIds(goal.parent_ids ?? []); setAddParentInput(''); setAddParentError(null); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleAddParent = () => {
+    const id = addParentInput.trim();
+    if (!id) return;
+    if (id === goal.id) { setAddParentError('不能将自身设为父节点'); return; }
+    if (parentIds.includes(id)) { setAddParentError('该父节点已存在'); return; }
+    if (!goals[id]) { setAddParentError(`找不到 ID 为 "${id}" 的目标`); return; }
+    setParentIds([...parentIds, id]);
+    setAddParentInput('');
+    setAddParentError(null);
+  };
+
+  const handleRemoveParent = (id: string) => setParentIds(parentIds.filter((p) => p !== id));
+
+  const parentsDirty = JSON.stringify(parentIds) !== JSON.stringify(goal.parent_ids ?? []);
+
   const form = useForm<GoalDetailFormValues>({ resolver: zodResolver(goalDetailSchema), defaultValues: mapGoalToForm(goal) });
 
   useEffect(() => { form.reset(mapGoalToForm(goal)); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { isDirty } = form.formState;
-  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+  useEffect(() => { onDirtyChange?.(isDirty || parentsDirty); }, [isDirty, parentsDirty, onDirtyChange]);
 
   const onSubmit = async (values: GoalDetailFormValues) => {
     setSaving(true);
-    try { await api.updateGoal(goal.id, values); onSaved(); }
+    try {
+      await api.updateGoal(goal.id, values);
+      if (parentsDirty) await api.updateParentIds(goal.id, parentIds);
+      onSaved();
+    }
     finally { setSaving(false); }
   };
 
@@ -105,6 +130,27 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
               </div>
             </div>
           )}
+          <div className="form-section">
+            <h2>父节点</h2>
+            {parentIds.length > 0 && (
+              <div className="chip-row" style={{ marginBottom: 8 }}>
+                {parentIds.map((id) => {
+                  const p = goals[id];
+                  return (
+                    <span key={id} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {p ? p.title : id}{p ? ` · ${statusLabels[p.status]}` : ''}
+                      <button type="button" onClick={() => handleRemoveParent(id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1 }} title="移除">×</button>
+                    </span>
+                  );
+                })}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: 6 }}>
+              <input type="text" value={addParentInput} onChange={(e) => { setAddParentInput(e.target.value); setAddParentError(null); }} onKeyDown={(e) => { if (e.key === 'Enter') { e.preventDefault(); handleAddParent(); } }} placeholder="输入目标 ID…" style={{ flex: 1 }} />
+              <button type="button" onClick={handleAddParent}>添加</button>
+            </div>
+            {addParentError && <span className="field-error">{addParentError}</span>}
+          </div>
           <div className="form-section">
             <h2>备注</h2>
             <NotesEditor />
