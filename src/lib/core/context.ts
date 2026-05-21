@@ -62,17 +62,21 @@ export function buildContextPack(goalId: string): string | null {
 
   const lines: string[] = [];
 
-  // 祖先路径
+  // 上层目标
   const allPaths = findAncestorPaths(goalId, goals);
   const hasAncestors = allPaths.some((p) => p.length > 0);
   if (hasAncestors) {
     const capped = allPaths.slice(0, MAX_PATHS);
-    lines.push(`## 祖先路径（共 ${allPaths.length} 条${allPaths.length > MAX_PATHS ? `，展示前 ${MAX_PATHS} 条` : ''}）`, '');
+    const multi = capped.length > 1;
+    const overflowed = allPaths.length > MAX_PATHS;
+    lines.push(`## 上层目标${multi ? `（${allPaths.length} 条分支${overflowed ? `，展示前 ${MAX_PATHS} 条` : ''}）` : ''}`, '');
     for (let i = 0; i < capped.length; i++) {
-      const path = capped[i].slice(-MAX_DEPTH); // 超深时截取最近 N 层
+      const path = capped[i].slice(-MAX_DEPTH);
       const truncated = capped[i].length > MAX_DEPTH;
-      const pathTitle = path.map((g) => g.title).join(' → ');
-      lines.push(`### 路径 ${i + 1}：${truncated ? '… → ' : ''}${pathTitle}`, '');
+      if (multi) {
+        const branchTitle = path.map((g) => g.title).join(' → ');
+        lines.push(`### 分支 ${i + 1}：${truncated ? '… → ' : ''}${branchTitle}`, '');
+      }
       for (const ancestor of path) {
         lines.push(...renderNode(ancestor), '');
       }
