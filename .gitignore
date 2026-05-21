@@ -1,0 +1,9 @@
+.goal-memory/
+.pytest_cache/
+__pycache__/
+*.pyc
+node_modules/
+dist/
+public/
+.next/
+.goal-memory/

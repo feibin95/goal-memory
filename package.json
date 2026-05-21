@@ -1,0 +1,36 @@
+{
+  "name": "goal-memory-demo",
+  "version": "1.0.0",
+  "description": "Goal + gradient memory runtime demo",
+  "type": "module",
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "test": "vitest run",
+    "cli": "tsx scripts/cli.ts",
+    "goalmem": "tsx scripts/cli.ts"
+  },
+  "dependencies": {
+    "@hookform/resolvers": "^5.2.2",
+    "commander": "^12.1.0",
+    "cytoscape": "^3.33.4",
+    "cytoscape-dagre": "^3.0.0",
+    "dagre": "^0.8.5",
+    "next": "^16.2.6",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-hook-form": "^7.76.0",
+    "zod": "^4.4.3",
+    "zustand": "^5.0.13"
+  },
+  "devDependencies": {
+    "@types/dagre": "^0.7.54",
+    "@types/node": "^20.14.0",
+    "@types/react": "^19.2.15",
+    "@types/react-dom": "^19.2.3",
+    "tsx": "^4.15.6",
+    "typescript": "^5.5.2",
+    "vitest": "^2.1.0"
+  }
+}
