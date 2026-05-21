@@ -30,7 +30,7 @@ export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, on
     if (!goal) return;
     setSubmitting(true); setError(null);
     try {
-      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parentId: goal.id, successCriteria: addChildForm.successCriteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps.split(',').map((s) => s.trim()).filter(Boolean) });
+      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parentIds: [goal.id], successCriteria: addChildForm.successCriteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps.split(',').map((s) => s.trim()).filter(Boolean) });
       setAddChildModal(false);
       setAddChildForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
       setAddChildDeps('');

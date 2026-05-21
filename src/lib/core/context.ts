@@ -7,8 +7,7 @@ export function buildContextPack(goalId: string): string | null {
   const goal = goals.get(goalId);
   if (!goal) return null;
 
-  const chain = parentChain(goal, goals);
-  const root = chain.length > 0 ? chain[chain.length - 1] : goal;
+  const parents = parentChain(goal, goals);
   const attempts = attemptsForGoal(goalId);
 
   const queryText = [goal.title, goal.background, goal.success_criteria].join(' ');
@@ -26,11 +25,11 @@ export function buildContextPack(goalId: string): string | null {
   }
 
   const lines: string[] = ['# 上下文包', ''];
-  lines.push('## 根目标', `**[${root.id}]** ${root.title}`, `> ${root.background}`, '');
-  if (chain.length > 0) {
-    lines.push('## 父链路');
-    for (const p of [...chain].reverse()) lines.push(`- [${p.id}] ${p.title} *(状态: ${p.status})*`);
-    lines.push('');
+  if (parents.length > 0) {
+    lines.push('## 父目标');
+    for (const p of parents) {
+      lines.push(`### [${p.id}] ${p.title}`, `> ${p.background}`, `*状态: ${p.status}*`, '');
+    }
   }
   lines.push('## 当前目标', `**[${goal.id}]** ${goal.title}`,
     `- **状态:** ${goal.status}`, `- **成本:** ${goal.cost}`);

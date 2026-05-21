@@ -14,7 +14,7 @@ export const GoalUtils = {
     title: string,
     background: string,
     options?: {
-      parentId?: string;
+      parentIds?: string[];
       dependencies?: string[];
       cost?: number;
       ddl?: string | null;
@@ -26,7 +26,7 @@ export const GoalUtils = {
       id: newId(),
       title,
       background,
-      parent_id: options?.parentId ?? null,
+      parent_ids: options?.parentIds ?? [],
       dependencies: options?.dependencies ?? [],
       status: 'ready',
       cost: options?.cost ?? 3,
@@ -38,18 +38,28 @@ export const GoalUtils = {
     };
   },
   toDict(g: Goal): Record<string, unknown> { return { ...g }; },
-  fromDict(d: Record<string, unknown>): Goal { return { ddl: null, ...d } as unknown as Goal; },
+  fromDict(d: Record<string, unknown>): Goal {
+    // 向下兼容：老数据用 parent_id（string|null），迁移为 parent_ids
+    const raw: Record<string, unknown> = { ddl: null, ...d };
+    if (!Array.isArray(raw['parent_ids'])) {
+      raw['parent_ids'] = raw['parent_id'] ? [raw['parent_id']] : [];
+    }
+    delete raw['parent_id'];
+    return raw as unknown as Goal;
+  },
 };
 
 export function validateDdl(goal: Goal, goals: Map<string, Goal>): string | null {
-  if (goal.parent_id && goal.ddl) {
-    const parent = goals.get(goal.parent_id);
-    if (parent?.ddl && goal.ddl > parent.ddl)
-      return `ddl ${goal.ddl} exceeds parent ddl ${parent.ddl}`;
-  }
   if (goal.ddl) {
+    // 子目标的 ddl 不能超过任何父节点的 ddl（取最严格约束）
+    for (const parentId of goal.parent_ids) {
+      const parent = goals.get(parentId);
+      if (parent?.ddl && goal.ddl > parent.ddl)
+        return `ddl ${goal.ddl} exceeds parent [${parentId}] ddl ${parent.ddl}`;
+    }
+    // 父目标的新 ddl 不能早于任何子节点的 ddl
     for (const g of goals.values()) {
-      if (g.parent_id === goal.id && g.ddl && g.ddl > goal.ddl)
+      if (g.parent_ids.includes(goal.id) && g.ddl && g.ddl > goal.ddl)
         return `child goal [${g.id}] ddl ${g.ddl} would exceed new ddl ${goal.ddl}`;
     }
   }

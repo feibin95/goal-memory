@@ -5,7 +5,7 @@ export interface Goal {
   id: string;
   title: string;
   background: string;
-  parent_id: string | null;
+  parent_ids: string[];
   dependencies: string[];
   status: GoalStatus;
   cost: number;

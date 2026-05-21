@@ -17,7 +17,7 @@ export const api = {
   getState: () => req<AppState>('/api/state'),
 
   createGoal: (data: {
-    title: string; background: string; parentId?: string;
+    title: string; background: string; parentIds?: string[];
     dependencies?: string[]; cost?: number; successCriteria?: string; ddl?: string | null;
   }) => req<Goal>('/api/goals', { method: 'POST', body: JSON.stringify(data) }),
 

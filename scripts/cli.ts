@@ -33,7 +33,7 @@ program.command('add').description('Add child goal')
   .action((opts) => {
     const parent = requireGoal(opts.parent);
     const deps = opts.deps ? opts.deps.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-    const goal = GoalUtils.create(opts.title, opts.description, { parentId: parent.id, dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.criteria, ddl: opts.ddl ?? null });
+    const goal = GoalUtils.create(opts.title, opts.description, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.criteria, ddl: opts.ddl ?? null });
     goal.status = 'ready';
     const goals = loadGoals(); goals.set(goal.id, goal);
     const err = validateDdl(goal, goals);
@@ -49,7 +49,7 @@ program.command('list').description('List all goals')
     console.log('ID         STATUS       DDL         TITLE');
     console.log('-'.repeat(70));
     for (const g of [...goals.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
-      console.log(g.id.padEnd(10) + ' ' + g.status.padEnd(12) + ' ' + (g.ddl ?? '').padEnd(11) + (g.parent_id ? '  ' : '') + g.title);
+      console.log(g.id.padEnd(10) + ' ' + g.status.padEnd(12) + ' ' + (g.ddl ?? '').padEnd(11) + (g.parent_ids?.length ? '  ' : '') + g.title);
     }
   });
 

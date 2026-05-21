@@ -16,8 +16,9 @@ function buildElements(goals: Record<string, Goal>) {
   const nodes = [], edges = [];
   for (const goal of Object.values(goals)) {
     nodes.push({ data: { id: goal.id, label: goal.title.length > 30 ? goal.title.slice(0, 29) + '…' : goal.title, status: goal.status } });
-    if (goal.parent_id && goals[goal.parent_id])
-      edges.push({ data: { id: `parent-${goal.id}`, source: goal.parent_id, target: goal.id, edgeType: 'parent' } });
+    for (const parentId of goal.parent_ids ?? [])
+      if (goals[parentId])
+        edges.push({ data: { id: `parent-${parentId}-${goal.id}`, source: parentId, target: goal.id, edgeType: 'parent' } });
     for (const depId of goal.dependencies ?? [])
       if (goals[depId]) edges.push({ data: { id: `dep-${goal.id}-${depId}`, source: goal.id, target: depId, edgeType: 'dependency' } });
   }

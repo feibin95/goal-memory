@@ -40,7 +40,7 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
   };
 
   const handleDelete = async () => {
-    const childCount = Object.values(goals).filter((g) => g.parent_id === goal.id).length;
+    const childCount = Object.values(goals).filter((g) => g.parent_ids?.includes(goal.id)).length;
     const msg = childCount > 0 ? `删除"${goal.title}"及其 ${childCount} 个子目标？此操作不可撤销。` : `删除"${goal.title}"？此操作不可撤销。`;
     if (!window.confirm(msg)) return;
     await api.deleteGoal(goal.id); onDeleted();

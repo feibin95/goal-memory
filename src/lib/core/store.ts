@@ -44,14 +44,34 @@ export function getGoal(goalId: string): Goal | null { return loadGoals().get(go
 
 export function deleteGoal(goalId: string): boolean {
   const records = readAll(goalsFile());
-  const toDelete = new Set<string>();
-  const collect = (id: string) => {
-    toDelete.add(id);
-    records.forEach((r) => { if (r['parent_id'] === id) collect(r['id'] as string); });
-  };
-  collect(goalId);
   if (!records.some((r) => r['id'] === goalId)) return false;
-  rewrite(goalsFile(), records.filter((r) => !toDelete.has(r['id'] as string)));
+
+  // 收集只剩这一个父节点的子节点（需要级联删除），多父的子节点只解除关系
+  const toDelete = new Set<string>([goalId]);
+  const collectOrphanedChildren = (id: string) => {
+    for (const r of records) {
+      const parentIds = Array.isArray(r['parent_ids']) ? (r['parent_ids'] as string[]) : [];
+      if (!parentIds.includes(id)) continue;
+      const remainingParents = parentIds.filter((pid) => !toDelete.has(pid));
+      if (remainingParents.length === 0) {
+        // 所有父节点都要被删除，级联删除此子节点
+        toDelete.add(r['id'] as string);
+        collectOrphanedChildren(r['id'] as string);
+      }
+    }
+  };
+  collectOrphanedChildren(goalId);
+
+  const updated = records
+    .filter((r) => !toDelete.has(r['id'] as string))
+    .map((r) => {
+      const parentIds = Array.isArray(r['parent_ids']) ? (r['parent_ids'] as string[]) : [];
+      const filtered = parentIds.filter((pid) => !toDelete.has(pid));
+      if (filtered.length !== parentIds.length) return { ...r, parent_ids: filtered };
+      return r;
+    });
+
+  rewrite(goalsFile(), updated);
   const attemptRecords = readAll(attemptsFile());
   rewrite(attemptsFile(), attemptRecords.filter((r) => !toDelete.has(r['goal_id'] as string)));
   return true;

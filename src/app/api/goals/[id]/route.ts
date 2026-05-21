@@ -10,7 +10,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   const goal = getGoal(id);
   if (!goal) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  const { title, background, success_criteria, status, cost, ddl, notes } = await req.json() as Record<string, unknown>;
+  const { title, background, success_criteria, status, cost, ddl, notes, parent_ids } = await req.json() as Record<string, unknown>;
   if (title !== undefined) goal.title = String(title);
   if (background !== undefined) goal.background = String(background);
   if (success_criteria !== undefined) goal.success_criteria = String(success_criteria);
@@ -18,6 +18,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (cost !== undefined) goal.cost = Number(cost);
   if (ddl !== undefined) goal.ddl = (ddl as string) || null;
   if (notes !== undefined) goal.notes = notes as string[];
+  if (Array.isArray(parent_ids)) goal.parent_ids = parent_ids as string[];
   goal.updated_at = new Date().toISOString();
 
   const goals = loadGoals();

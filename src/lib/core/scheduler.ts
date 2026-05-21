@@ -2,7 +2,7 @@ import type { Goal, Attempt } from '@/types';
 import { loadGoals, loadAttempts } from './store';
 
 export function isLeaf(goal: Goal, goals: Map<string, Goal>): boolean {
-  for (const g of goals.values()) { if (g.parent_id === goal.id) return false; }
+  for (const g of goals.values()) { if (g.parent_ids.includes(goal.id)) return false; }
   return true;
 }
 
@@ -14,16 +14,26 @@ export function depsDone(goal: Goal, goals: Map<string, Goal>): boolean {
   return true;
 }
 
+// 返回直接父节点列表（多父节点支持）
 export function parentChain(goal: Goal, goals: Map<string, Goal>): Goal[] {
-  const chain: Goal[] = [];
-  let current: Goal = goal;
-  while (current.parent_id) {
-    const parent = goals.get(current.parent_id);
-    if (!parent) break;
-    chain.push(parent);
-    current = parent;
+  return goal.parent_ids
+    .map((id) => goals.get(id))
+    .filter((g): g is Goal => g !== undefined);
+}
+
+// 返回所有祖先节点（BFS，不含自身）
+export function allAncestors(goal: Goal, goals: Map<string, Goal>): Goal[] {
+  const visited = new Set<string>([goal.id]);
+  const result: Goal[] = [];
+  const queue = parentChain(goal, goals);
+  while (queue.length > 0) {
+    const current = queue.shift()!;
+    if (visited.has(current.id)) continue;
+    visited.add(current.id);
+    result.push(current);
+    queue.push(...parentChain(current, goals));
   }
-  return chain;
+  return result;
 }
 
 export function ddlUrgency(goal: Goal): number {
