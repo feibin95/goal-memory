@@ -60,7 +60,7 @@ export function buildContextPack(goalId: string): string | null {
     if (snippets.length >= 3) break;
   }
 
-  const lines: string[] = ['# 上下文包', ''];
+  const lines: string[] = [];
 
   // 祖先路径
   const allPaths = findAncestorPaths(goalId, goals);
