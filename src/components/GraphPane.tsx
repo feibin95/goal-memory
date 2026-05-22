@@ -12,10 +12,27 @@ const STATUS_COLORS: Record<string, string> = {
   proposed: '#4a5060', review: '#b9a1e6', obsolete: '#4a5060',
 };
 
+function topoSort(goals: Record<string, Goal>): Goal[] {
+  const visited = new Set<string>();
+  const result: Goal[] = [];
+  function visit(id: string) {
+    if (visited.has(id)) return;
+    visited.add(id);
+    const goal = goals[id];
+    if (!goal) return;
+    for (const depId of goal.dependencies ?? []) visit(depId);
+    result.push(goal);
+  }
+  for (const id of Object.keys(goals)) visit(id);
+  return result;
+}
+
 function buildElements(goals: Record<string, Goal>) {
   const nodes = [], edges = [];
-  for (const goal of Object.values(goals)) {
-    nodes.push({ data: { id: goal.id, label: goal.title.length > 30 ? goal.title.slice(0, 29) + '…' : goal.title, status: goal.status } });
+  for (const goal of topoSort(goals)) {
+    const label = goal.title.length > 30 ? goal.title.slice(0, 29) + '…' : goal.title;
+    const width = Math.max(80, Math.min(240, label.length * 13 + 28));
+    nodes.push({ data: { id: goal.id, label, status: goal.status, width, textMaxWidth: `${width - 24}px` } });
     for (const parentId of goal.parent_ids ?? [])
       if (goals[parentId])
         edges.push({ data: { id: `parent-${parentId}-${goal.id}`, source: parentId, target: goal.id, edgeType: 'parent' } });
@@ -25,10 +42,29 @@ function buildElements(goals: Record<string, Goal>) {
   return [...nodes, ...edges];
 }
 
+function reorderSameRankByDependency(cy: cytoscape.Core, goals: Record<string, Goal>) {
+  const topo = topoSort(goals);
+  const topoIndex = new Map(topo.map((g, i) => [g.id, i]));
+  const Y_TOLERANCE = 5;
+  const groups: Array<{ y: number; nodes: cytoscape.NodeSingular[] }> = [];
+  cy.nodes().forEach(node => {
+    const y = node.position('y');
+    const group = groups.find(g => Math.abs(g.y - y) < Y_TOLERANCE);
+    if (group) group.nodes.push(node);
+    else groups.push({ y, nodes: [node] });
+  });
+  for (const { nodes } of groups) {
+    if (nodes.length <= 1) continue;
+    const xs = nodes.map(n => n.position('x')).sort((a, b) => a - b);
+    const sorted = [...nodes].sort((a, b) => (topoIndex.get(a.data('id')) ?? 0) - (topoIndex.get(b.data('id')) ?? 0));
+    sorted.forEach((node, i) => node.position('x', xs[i]));
+  }
+}
+
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getStyle(): any[] {
   return [
-    { selector: 'node', style: { shape: 'roundrectangle', width: 160, height: 'label', 'padding-top': '10px', 'padding-bottom': '10px', 'padding-left': '12px', 'padding-right': '12px', label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': '136px', 'font-size': '12px', 'font-family': 'ui-monospace, monospace', color: '#e6e0d8', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#17191d', 'border-width': 1.5, 'border-color': '#4a5060' } },
+    { selector: 'node', style: { shape: 'roundrectangle', width: 'data(width)', height: 'label', 'padding-top': '10px', 'padding-bottom': '10px', 'padding-left': '12px', 'padding-right': '12px', label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 'data(textMaxWidth)', 'font-size': '12px', 'font-family': 'ui-monospace, monospace', color: '#e6e0d8', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#17191d', 'border-width': 1.5, 'border-color': '#4a5060' } },
     ...Object.entries(STATUS_COLORS).map(([status, color]) => ({ selector: `node[status="${status}"]`, style: { 'border-color': color, opacity: status === 'done' || status === 'obsolete' ? 0.55 : 1 } })),
     { selector: 'node:selected', style: { 'border-width': 2.5, 'border-color': '#ffffff', 'background-color': '#1f2228' } },
     { selector: 'edge[edgeType="parent"]', style: { 'line-style': 'solid', 'line-color': '#4a5060', 'target-arrow-color': '#4a5060', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, width: 1.5, 'curve-style': 'bezier' } },
@@ -62,7 +98,9 @@ export function GraphPane({ goals, selectedId, onSelect }: Props) {
       cy.elements().forEach((el) => { if (!newIds.has(el.data('id'))) el.remove(); });
       elements.forEach((el) => { const ex = cy.getElementById(el.data.id); if (ex.length) ex.data(el.data); else cy.add(el); });
     });
-    cy.layout({ name: 'dagre', eles: cy.nodes().add(cy.edges('[edgeType="parent"]')), rankDir: 'TB', nodeSep: 40, rankSep: 70, animate: Object.keys(goals).length <= 50, animationDuration: 250, fit: true, padding: 30 } as cytoscape.LayoutOptions).run();
+    cy.layout({ name: 'dagre', eles: cy.nodes().add(cy.edges('[edgeType="parent"]')), rankDir: 'TB', nodeSep: 40, rankSep: 70, animate: false, fit: false, padding: 30 } as cytoscape.LayoutOptions).run();
+    reorderSameRankByDependency(cy, goals);
+    cy.fit(undefined, 30);
   }, [goals]);
 
   useEffect(() => {
