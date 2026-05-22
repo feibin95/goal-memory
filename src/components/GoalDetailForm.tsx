@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { goalDetailSchema, type GoalDetailFormValues } from '@/lib/schema';
+import { goalDetailSchema, type GoalDetailFormValues } from '@/types';
 import type { Goal, Attempt } from '@/types';
 import { GOAL_STATUS_LABELS } from '@/lib/constants';
 import { api } from '@/lib/api';

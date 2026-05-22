@@ -2,7 +2,7 @@
 import { useState } from 'react';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { attemptSchema, type AttemptFormValues } from '@/lib/schema';
+import { attemptSchema, type AttemptFormValues } from '@/types';
 import type { Attempt } from '@/types';
 import { api } from '@/lib/api';
 

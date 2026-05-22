@@ -1,5 +1,5 @@
 import type { AppState, Goal } from '@/types';
-import type { GoalDetailFormValues, AttemptFormValues } from './schema';
+import type { GoalDetailFormValues, AttemptFormValues } from '@/types';
 
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {

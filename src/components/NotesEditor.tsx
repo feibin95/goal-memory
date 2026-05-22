@@ -1,6 +1,6 @@
 'use client';
 import { useFormContext, useWatch } from 'react-hook-form';
-import type { GoalDetailFormValues } from '@/lib/schema';
+import type { GoalDetailFormValues } from '@/types';
 
 export function NotesEditor() {
   const { register, setValue } = useFormContext<GoalDetailFormValues>();

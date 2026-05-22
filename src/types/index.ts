@@ -19,6 +19,18 @@ export const GoalSchema = z.object({
 });
 export type Goal = z.infer<typeof GoalSchema>;
 
+// 表单校验 schema：不带默认值，react-hook-form 要求 input/output 类型一致
+export const goalDetailSchema = z.object({
+  title:            z.string().min(1, '标题不能为空'),
+  background:       z.string().min(1, '背景问题不能为空'),
+  success_criteria: z.string(),
+  status:           GoalStatusSchema,
+  cost:             z.number().int().min(1).max(10),
+  ddl:              z.string().nullable(),
+  notes:            z.array(z.string()),
+});
+export type GoalDetailFormValues = z.infer<typeof goalDetailSchema>;
+
 export const AttemptSchema = z.object({
   id:         z.string(),
   goal_id:    z.string(),
@@ -29,6 +41,14 @@ export const AttemptSchema = z.object({
   created_at: z.string(),
 });
 export type Attempt = z.infer<typeof AttemptSchema>;
+
+export const attemptSchema = z.object({
+  hypothesis: z.string().min(1, '假设不能为空'),
+  action:     z.string().min(1, '行动不能为空'),
+  result:     z.string().min(1, '结果不能为空'),
+  gradient:   z.number().nullable(),
+});
+export type AttemptFormValues = z.infer<typeof attemptSchema>;
 
 export const KBEntrySchema = z.object({
   id:         z.string(),
