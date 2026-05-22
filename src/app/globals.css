@@ -73,15 +73,45 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
 
 .workspace {
   display: grid;
-  grid-template-columns: 1fr minmax(380px, 480px);
+  grid-template-columns: 1fr;
   height: calc(100vh - 48px);
 }
 
 .pane { min-width: 0; overflow: auto; border-right: 1px solid var(--line); background: var(--panel); }
 
-.graph-pane { position: relative; overflow: hidden; background: var(--bg); border-right: 1px solid var(--line); }
+.graph-pane { position: relative; overflow: hidden; background: var(--bg); }
 
-.detail-pane { background: var(--bg); overflow-y: auto; }
+.detail-pane {
+  position: fixed;
+  top: 48px;
+  right: 0;
+  width: 480px;
+  height: calc(100vh - 48px);
+  background: var(--bg);
+  border-left: 1px solid var(--line);
+  overflow-y: auto;
+  z-index: 100;
+  box-shadow: -4px 0 20px rgba(0, 0, 0, 0.35);
+  animation: drawerSlideIn 250ms ease-out;
+}
+
+@keyframes drawerSlideIn {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+
+.pane-close {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 14px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  line-height: 1;
+}
+.pane-close:hover { color: var(--text); background: var(--line); }
 
 .pane-title {
   min-height: 42px;

@@ -48,8 +48,9 @@ export function buildContextPack(goalId: string): string | null {
 
   const queryText = [goal.title, goal.background, goal.success_criteria].join(' ');
   const terms: string[] = [];
-  for (const m of queryText.toLowerCase().matchAll(/[a-z0-9_-]+/g)) {
-    if (m[0].length >= 4 && !terms.includes(m[0])) terms.push(m[0]);
+  for (const m of queryText.matchAll(/[一-鿿]{2,}|[a-z0-9_-]{4,}/gi)) {
+    const term = m[0].toLowerCase();
+    if (!terms.includes(term)) terms.push(term);
   }
   const snippets: ReturnType<typeof search> = [];
   const seenKb = new Set<string>();

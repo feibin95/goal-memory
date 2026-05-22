@@ -1,24 +1,23 @@
 'use client';
 import { useState } from 'react';
-import type { Goal, Attempt } from '@/types';
+import type { GoalDetail, GoalSummary } from '@/types';
 import { GoalDetailForm } from './GoalDetailForm';
 import { api } from '@/lib/api';
-function goalLabel(g: Goal, peers: Goal[]): string {
+function goalLabel(g: GoalSummary, peers: GoalSummary[]): string {
   const hasDup = peers.some(p => p.id !== g.id && p.title === g.title);
-  const combined = `${g.title}・${g.background ?? ''}`;
-  const label = combined.length > 25 ? combined.slice(0, 25) + '…' : combined;
+  const label = g.title.length > 25 ? g.title.slice(0, 25) + '…' : g.title;
   const suffix = hasDup ? `・${g.id.slice(0, 4)}` : '';
   return `${label}${suffix}`;
 }
 
 interface Props {
-  goal: Goal | null; goals: Record<string, Goal>; attempts: Attempt[];
-  onRefresh: () => void; onGoalDeleted: () => void; onDirtyChange?: (dirty: boolean) => void;
+  goal: GoalDetail; goals: Record<string, GoalSummary>;
+  onRefresh: () => void; onClose: () => void; onGoalDeleted: () => void; onDirtyChange?: (dirty: boolean) => void;
 }
 
 interface NewGoalForm { title: string; background: string; success_criteria: string; cost: number; ddl: string; }
 
-export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, onDirtyChange }: Props) {
+export function DetailPane({ goal, goals, onRefresh, onClose, onGoalDeleted, onDirtyChange }: Props) {
   const [addChildModal, setAddChildModal] = useState(false);
   const [addChildForm, setAddChildForm] = useState<NewGoalForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   const [addChildDeps, setAddChildDeps] = useState<string[]>([]);
@@ -55,12 +54,11 @@ export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, on
 
   return (
     <div className="detail-pane">
-      <div className="pane-title"><span>已选目标</span></div>
-      {!goal ? (
-        <div className="empty">请选择一个目标查看详情。</div>
-      ) : (
-        <GoalDetailForm key={goal.id} goal={goal} goals={goals} attempts={attempts} onSaved={onRefresh} onDeleted={onGoalDeleted} onAddChild={() => setAddChildModal(true)} onDirtyChange={onDirtyChange} />
-      )}
+      <div className="pane-title">
+        <span>已选目标</span>
+        <button type="button" className="pane-close" onClick={onClose}>✕</button>
+      </div>
+      <GoalDetailForm key={goal.id} goal={goal} goals={goals} onSaved={onRefresh} onDeleted={onGoalDeleted} onAddChild={() => setAddChildModal(true)} onDirtyChange={onDirtyChange} />
       {addChildModal && goal && (
         <div className="modal-overlay" onClick={closeAddChildModal}>
           <div className="modal" onClick={(e) => e.stopPropagation()}>

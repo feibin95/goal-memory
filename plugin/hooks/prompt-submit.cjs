@@ -18,19 +18,6 @@ function getSessionKey(transcriptPath) {
   return path.basename(transcriptPath, '.jsonl');
 }
 
-// list 输出格式: ID(10) STATUS(12) DDL(11) TITLE
-function parseListOutput(listOutput) {
-  const goals = [];
-  let inData = false;
-  for (const line of listOutput.split('\n')) {
-    if (line.startsWith('-'.repeat(10))) { inData = true; continue; }
-    if (!inData || !line.trim()) continue;
-    const id = line.slice(0, 10).trim();
-    const title = line.slice(35).trim();
-    if (id) goals.push({ id, title });
-  }
-  return goals;
-}
 
 let data = '';
 process.stdin.setEncoding('utf8');
@@ -53,9 +40,8 @@ process.stdin.on('end', () => {
 
     // 未绑定 且 前3条消息：每条都注入提醒，让 AI 继续追问
     if (sessionKey && !boundGoalId && userCount <= 3) {
-      let listOutput;
-      try { listOutput = cli('list'); } catch (_) { process.exit(0); }
-      const goals = parseListOutput(listOutput);
+      let goals;
+      try { goals = JSON.parse(cli('list --json')); } catch (_) { process.exit(0); }
       if (goals.length === 0) { process.exit(0); }
 
       const numberedList = goals.map((g, i) =>

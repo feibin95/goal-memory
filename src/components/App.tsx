@@ -4,15 +4,16 @@ import { GraphPane } from './GraphPane';
 import { DetailPane } from './DetailPane';
 import { ToastProvider } from './Toast';
 import { api } from '@/lib/api';
-import type { AppState } from '@/types';
+import type { AppState, GoalDetail } from '@/types';
 
 interface NewRootForm {
   title: string; background: string; success_criteria: string; cost: number; ddl: string;
 }
 
 export default function App() {
-  const [state, setState] = useState<AppState>({ goals: {}, attempts: [], kb: [], storagePath: '' });
+  const [state, setState] = useState<AppState>({ goals: {} });
   const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedGoal, setSelectedGoal] = useState<GoalDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [newRootModal, setNewRootModal] = useState(false);
   const [newRootForm, setNewRootForm] = useState<NewRootForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
@@ -20,10 +21,28 @@ export default function App() {
   const [submitting, setSubmitting] = useState(false);
   const formDirtyRef = useRef(false);
 
+  const loadSelectedGoal = async (id: string) => {
+    try {
+      const goal = await api.getGoal(id);
+      setSelectedGoal(goal);
+    } catch (e) {
+      console.error('loadSelectedGoal failed:', e);
+    }
+  };
+
+  const closeDetail = () => { setSelectedId(null); setSelectedGoal(null); };
+
   const handleSelectGoal = (id: string) => {
     if (formDirtyRef.current && !window.confirm('表单有未保存的修改，切换目标将丢失这些内容，确认继续？')) return;
     setSelectedId(id);
+    loadSelectedGoal(id);
   };
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') closeDetail(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasNewRootContent = newRootForm.title !== '' || newRootForm.background !== '' || newRootForm.success_criteria !== '';
   const closeNewRootModal = () => {
@@ -35,12 +54,13 @@ export default function App() {
   const loadState = async () => {
     try {
       const data = await api.getState();
-      setState({ goals: data.goals, attempts: data.attempts, kb: data.kb, storagePath: data.storagePath });
-      setSelectedId((prev) => {
-        if (prev && data.goals[prev]) return prev;
-        const first = Object.values(data.goals).sort((a, b) => a.created_at.localeCompare(b.created_at))[0];
-        return first ? first.id : null;
-      });
+      setState({ goals: data.goals });
+      if (selectedId && data.goals[selectedId]) {
+        loadSelectedGoal(selectedId);
+      } else if (selectedId && !data.goals[selectedId]) {
+        setSelectedId(null);
+        setSelectedGoal(null);
+      }
     } finally { setLoading(false); }
   };
 
@@ -55,18 +75,16 @@ export default function App() {
       setNewRootForm({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
       await loadState();
       setSelectedId(goal.id);
+      await loadSelectedGoal(goal.id);
     } catch (e) { setNewRootError((e as Error).message); }
     finally { setSubmitting(false); }
   };
-
-  const selectedGoal = selectedId ? state.goals[selectedId] : null;
 
   return (
     <>
       <header className="topbar">
         <div>
           <strong>Goal Memory</strong>
-          {state.storagePath && <span className="storage-path">　Storage: {state.storagePath}</span>}
         </div>
         <div className="topbar-actions">
           <button type="button" onClick={loadState} disabled={loading}>刷新</button>
@@ -74,8 +92,13 @@ export default function App() {
         </div>
       </header>
       <main className="workspace">
-        <GraphPane goals={state.goals} selectedId={selectedId} onSelect={handleSelectGoal} />
-        <DetailPane goal={selectedGoal} goals={state.goals} attempts={state.attempts} onRefresh={loadState} onGoalDeleted={() => { setSelectedId(null); loadState(); }} onDirtyChange={(dirty) => { formDirtyRef.current = dirty; }} />
+        <GraphPane goals={state.goals} selectedId={selectedId} onSelect={handleSelectGoal} onClickBackground={closeDetail} />
+        {selectedGoal && (
+          <DetailPane goal={selectedGoal} goals={state.goals} onRefresh={loadState}
+            onClose={closeDetail}
+            onGoalDeleted={() => { closeDetail(); loadState(); }}
+            onDirtyChange={(dirty) => { formDirtyRef.current = dirty; }} />
+        )}
       </main>
       {newRootModal && (
         <div className="modal-overlay" onClick={closeNewRootModal}>

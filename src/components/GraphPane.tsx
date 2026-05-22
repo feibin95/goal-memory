@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import cytoscape from 'cytoscape';
 // @ts-expect-error no types
 import cytoscapeDagre from 'cytoscape-dagre';
-import type { Goal } from '@/types';
+import type { GoalSummary } from '@/types';
 
 cytoscape.use(cytoscapeDagre as cytoscape.Ext);
 
@@ -12,9 +12,9 @@ const STATUS_COLORS: Record<string, string> = {
   proposed: '#4a5060', review: '#b9a1e6', obsolete: '#4a5060',
 };
 
-function topoSort(goals: Record<string, Goal>): Goal[] {
+function topoSort(goals: Record<string, GoalSummary>): GoalSummary[] {
   const visited = new Set<string>();
-  const result: Goal[] = [];
+  const result: GoalSummary[] = [];
   function visit(id: string) {
     if (visited.has(id)) return;
     visited.add(id);
@@ -27,7 +27,7 @@ function topoSort(goals: Record<string, Goal>): Goal[] {
   return result;
 }
 
-function buildElements(goals: Record<string, Goal>) {
+function buildElements(goals: Record<string, GoalSummary>) {
   const nodes = [], edges = [];
   for (const goal of topoSort(goals)) {
     const label = goal.title.length > 30 ? goal.title.slice(0, 29) + '…' : goal.title;
@@ -42,7 +42,7 @@ function buildElements(goals: Record<string, Goal>) {
   return [...nodes, ...edges];
 }
 
-function reorderSameRankByDependency(cy: cytoscape.Core, goals: Record<string, Goal>) {
+function reorderSameRankByDependency(cy: cytoscape.Core, goals: Record<string, GoalSummary>) {
   const topo = topoSort(goals);
   const topoIndex = new Map(topo.map((g, i) => [g.id, i]));
   const Y_TOLERANCE = 5;
@@ -72,18 +72,21 @@ function getStyle(): any[] {
   ];
 }
 
-interface Props { goals: Record<string, Goal>; selectedId: string | null; onSelect: (id: string) => void; }
+interface Props { goals: Record<string, GoalSummary>; selectedId: string | null; onSelect: (id: string) => void; onClickBackground?: () => void; }
 
-export function GraphPane({ goals, selectedId, onSelect }: Props) {
+export function GraphPane({ goals, selectedId, onSelect, onClickBackground }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
   const onSelectRef = useRef(onSelect);
+  const onClickBackgroundRef = useRef(onClickBackground);
   onSelectRef.current = onSelect;
+  onClickBackgroundRef.current = onClickBackground;
 
   useEffect(() => {
     if (!containerRef.current || cyRef.current) return;
     const cy = cytoscape({ container: containerRef.current, elements: [], style: getStyle(), layout: { name: 'preset' }, minZoom: 0.2, maxZoom: 3, wheelSensitivity: 0.3 });
     cy.on('tap', 'node', (evt) => onSelectRef.current(evt.target.data('id')));
+    cy.on('tap', (evt) => { if (evt.target === cy) onClickBackgroundRef.current?.(); });
     const ro = new ResizeObserver(() => cy.resize());
     ro.observe(containerRef.current);
     cyRef.current = cy;

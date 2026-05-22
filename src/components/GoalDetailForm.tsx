@@ -4,34 +4,33 @@ import ReactMarkdown from 'react-markdown';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
 import { goalDetailSchema, type GoalDetailFormValues } from '@/types';
-import type { Goal, Attempt } from '@/types';
+import type { GoalDetail, GoalSummary } from '@/types';
 import { GOAL_STATUS_LABELS } from '@/lib/constants';
 import { api } from '@/lib/api';
 import { NotesEditor } from './NotesEditor';
 import { AttemptsTable } from './AttemptsTable';
 
 interface Props {
-  goal: Goal; goals: Record<string, Goal>; attempts: Attempt[];
+  goal: GoalDetail; goals: Record<string, GoalSummary>;
   onSaved: () => void; onDeleted: () => void; onAddChild: () => void;
   onDirtyChange?: (dirty: boolean) => void;
 }
 
 const statusLabels = GOAL_STATUS_LABELS;
 
-function mapGoalToForm(goal: Goal): GoalDetailFormValues {
+function mapGoalToForm(goal: GoalDetail): GoalDetailFormValues {
   return { title: goal.title, background: goal.background, success_criteria: goal.success_criteria, status: goal.status, cost: goal.cost, ddl: goal.ddl, notes: goal.notes ?? [] };
 }
 
-function goalLabel(g: Goal, allGoals: Record<string, Goal>): string {
+function goalLabel(g: GoalSummary, allGoals: Record<string, GoalSummary>): string {
   const hasDup = Object.values(allGoals).some(o => o.id !== g.id && o.title === g.title);
-  const combined = `${g.title}・${g.background ?? ''}`;
-  const label = combined.length > 25 ? combined.slice(0, 25) + '…' : combined;
+  const label = g.title.length > 25 ? g.title.slice(0, 25) + '…' : g.title;
   const suffix = hasDup ? `・${g.id.slice(0, 4)}` : '';
   return `${label}${suffix}`;
 }
 
 // 递归收集所有后代 id，防止选父节点时成环
-function collectDescendants(goalId: string, goals: Record<string, Goal>): Set<string> {
+function collectDescendants(goalId: string, goals: Record<string, GoalSummary>): Set<string> {
   const result = new Set<string>();
   const queue = [goalId];
   while (queue.length > 0) {
@@ -46,7 +45,7 @@ function collectDescendants(goalId: string, goals: Record<string, Goal>): Set<st
   return result;
 }
 
-export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAddChild, onDirtyChange }: Props) {
+export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, onDirtyChange }: Props) {
   const [saving, setSaving] = useState(false);
   const [contextText, setContextText] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
@@ -95,20 +94,17 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
 
   const handleRemoveParent = (id: string) => setParentIds(prev => prev.filter(p => p !== id));
 
-  const parentsDirty = JSON.stringify(parentIds) !== JSON.stringify(goal.parent_ids ?? []);
-
   const form = useForm<GoalDetailFormValues>({ resolver: zodResolver(goalDetailSchema), defaultValues: mapGoalToForm(goal) });
 
   useEffect(() => { form.reset(mapGoalToForm(goal)); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const { isDirty } = form.formState;
-  useEffect(() => { onDirtyChange?.(isDirty || parentsDirty); }, [isDirty, parentsDirty, onDirtyChange]);
+  useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
 
   const onSubmit = async (values: GoalDetailFormValues) => {
     setSaving(true);
     try {
-      await api.updateGoal(goal.id, values);
-      if (parentsDirty) await api.updateParentIds(goal.id, parentIds);
+      await api.updateGoal(goal.id, { ...values, parent_ids: parentIds });
       form.reset(values);
       onSaved();
     }
@@ -236,14 +232,14 @@ export function GoalDetailForm({ goal, goals, attempts, onSaved, onDeleted, onAd
             </div>
             <div className="btn-group" style={{ marginLeft: 'auto' }}>
               <button type="button" className="danger" onClick={handleDelete}>删除</button>
-              <button type="submit" className="primary" disabled={saving || (!isDirty && !parentsDirty)}>
+              <button type="submit" className="primary" disabled={saving || !isDirty}>
                 {saving ? '保存中…' : '保存'}
               </button>
             </div>
           </div>
         </form>
         <div style={{ padding: '0 18px 24px' }}>
-          <AttemptsTable goalId={goal.id} attempts={attempts} onAttemptAdded={onSaved} />
+          <AttemptsTable goalId={goal.id} attempts={goal.attempts} onAttemptAdded={onSaved} />
         </div>
       </FormProvider>
       {contextText !== null && (

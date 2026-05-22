@@ -77,41 +77,6 @@ server.registerTool(
   }
 );
 
-server.registerTool(
-  "start_goal",
-  {
-    description: "将目标状态设置为 in_progress",
-    inputSchema: { goalId: z.string().describe("目标 ID") },
-  },
-  async ({ goalId }) => {
-    const goal = getGoal(goalId);
-    if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
-    goal.status = "in_progress";
-    goal.updated_at = new Date().toISOString();
-    saveGoal(goal);
-    return { content: [{ type: "text", text: `Goal [${goalId}] "${goal.title}" is now in_progress.` }] };
-  }
-);
-
-server.registerTool(
-  "complete_goal",
-  {
-    description: "将目标标记为完成",
-    inputSchema: {
-      goalId: z.string().describe("目标 ID"),
-      evidence: z.string().optional().describe("完成凭证/说明（可选）"),
-    },
-  },
-  async ({ goalId, evidence }) => {
-    const goal = getGoal(goalId);
-    if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
-    goal.status = "done";
-    goal.updated_at = new Date().toISOString();
-    if (evidence) goal.notes.push(`[done] ${evidence}`);
-    saveGoal(goal);
-    return { content: [{ type: "text", text: `Goal [${goalId}] "${goal.title}" marked as done.` }] };
-  }
-);
 
 server.registerTool(
   "record_attempt",
@@ -122,12 +87,13 @@ server.registerTool(
       hypothesis: z.string().describe("本次尝试的假设"),
       action: z.string().describe("实际执行的行动"),
       result: z.string().describe("观察到的结果"),
+      gradient: z.number().nullable().optional().describe("梯度/进展评分（可选）"),
     },
   },
-  async ({ goalId, hypothesis, action, result }) => {
+  async ({ goalId, hypothesis, action, result, gradient }) => {
     const goal = getGoal(goalId);
     if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
-    const attempt = AttemptUtils.create(goalId, hypothesis, action, result);
+    const attempt = AttemptUtils.create(goalId, hypothesis, action, result, gradient ?? null);
     saveAttempt(attempt);
     return { content: [{ type: "text", text: `Attempt [${attempt.id}] recorded for goal "${goal.title}".` }] };
   }

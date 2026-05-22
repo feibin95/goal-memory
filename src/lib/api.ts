@@ -1,4 +1,4 @@
-import type { AppState, Goal } from '@/types';
+import type { AppState, Goal, GoalDetail } from '@/types';
 import type { GoalDetailFormValues, AttemptFormValues } from '@/types';
 
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -21,17 +21,11 @@ export const api = {
     dependencies?: string[]; cost?: number; success_criteria?: string; ddl?: string | null;
   }) => req<Goal>('/api/goals', { method: 'POST', body: JSON.stringify(data) }),
 
-  updateGoal: (id: string, data: GoalDetailFormValues) =>
+  getGoal: (id: string) =>
+    req<GoalDetail>(`/api/goals/${id}`),
+
+  updateGoal: (id: string, data: GoalDetailFormValues & { parent_ids?: string[] }) =>
     req<Goal>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
-
-  updateParentIds: (id: string, parentIds: string[]) =>
-    req<Goal>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify({ parent_ids: parentIds }) }),
-
-  startGoal: (id: string) =>
-    req<Goal>(`/api/goals/${id}/start`, { method: 'POST', body: JSON.stringify({}) }),
-
-  completeGoal: (id: string) =>
-    req<Goal>(`/api/goals/${id}/complete`, { method: 'POST', body: JSON.stringify({}) }),
 
   deleteGoal: (id: string) =>
     req<{ deleted: string }>(`/api/goals/${id}`, { method: 'DELETE' }),

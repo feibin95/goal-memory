@@ -1,7 +1,19 @@
+import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { validateDdl } from '@/lib/core/models';
-import { getGoal, saveGoal, deleteGoal, loadGoals } from '@/lib/core/store';
-import type { GoalStatus } from '@/types';
+import { getGoal, saveGoal, deleteGoal, loadGoals, loadAttempts } from '@/lib/core/store';
+import { GoalStatusSchema } from '@/types';
+
+const updateGoalSchema = z.object({
+  title:            z.string().min(1).optional(),
+  background:       z.string().optional(),
+  success_criteria: z.string().optional(),
+  status:           GoalStatusSchema.optional(),
+  cost:             z.number().int().optional(),
+  ddl:              z.string().nullable().optional(),
+  notes:            z.array(z.string()).optional(),
+  parent_ids:       z.array(z.string()).optional(),
+});
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -10,15 +22,18 @@ export async function PUT(req: Request, { params }: Ctx) {
   const goal = getGoal(id);
   if (!goal) return NextResponse.json({ error: 'not found' }, { status: 404 });
 
-  const { title, background, success_criteria, status, cost, ddl, notes, parent_ids } = await req.json() as Record<string, unknown>;
-  if (title !== undefined) goal.title = String(title);
-  if (background !== undefined) goal.background = String(background);
-  if (success_criteria !== undefined) goal.success_criteria = String(success_criteria);
-  if (status !== undefined) goal.status = status as GoalStatus;
-  if (cost !== undefined) goal.cost = Number(cost);
-  if (ddl !== undefined) goal.ddl = (ddl as string) || null;
-  if (notes !== undefined) goal.notes = notes as string[];
-  if (Array.isArray(parent_ids)) goal.parent_ids = parent_ids as string[];
+  const parsed = updateGoalSchema.safeParse(await req.json());
+  if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const { title, background, success_criteria, status, cost, ddl, notes, parent_ids } = parsed.data;
+  if (title !== undefined) goal.title = title;
+  if (background !== undefined) goal.background = background;
+  if (success_criteria !== undefined) goal.success_criteria = success_criteria;
+  if (status !== undefined) goal.status = status;
+  if (cost !== undefined) goal.cost = cost;
+  if (ddl !== undefined) goal.ddl = ddl;
+  if (notes !== undefined) goal.notes = notes;
+  if (parent_ids !== undefined) goal.parent_ids = parent_ids;
   goal.updated_at = new Date().toISOString();
 
   const goals = loadGoals();
@@ -28,6 +43,14 @@ export async function PUT(req: Request, { params }: Ctx) {
 
   saveGoal(goal);
   return NextResponse.json(goal);
+}
+
+export async function GET(_req: Request, { params }: Ctx) {
+  const { id } = await params;
+  const goal = getGoal(id);
+  if (!goal) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  const attempts = loadAttempts().filter(a => a.goal_id === id);
+  return NextResponse.json({ ...goal, attempts });
 }
 
 export async function DELETE(_req: Request, { params }: Ctx) {

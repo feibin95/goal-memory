@@ -1,11 +1,12 @@
 import { NextResponse } from 'next/server';
-import { loadGoals, loadAttempts, loadKb } from '@/lib/core/store';
-import path from 'path';
+import { loadGoals } from '@/lib/core/store';
 
 export function GET() {
-  const goals = Object.fromEntries(loadGoals());
-  const attempts = loadAttempts();
-  const kb = loadKb();
-  const storagePath = path.join(process.cwd(), '.goal-memory');
-  return NextResponse.json({ goals, attempts, kb, storagePath });
+  const goals = Object.fromEntries(
+    Array.from(loadGoals().entries()).map(([id, g]) => [id, {
+      id: g.id, title: g.title, status: g.status,
+      parent_ids: g.parent_ids, dependencies: g.dependencies, created_at: g.created_at,
+    }])
+  );
+  return NextResponse.json({ goals });
 }

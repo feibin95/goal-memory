@@ -17,24 +17,24 @@ const program = new Command();
 program.name('goalmem').description('Goal memory runtime CLI').version('1.0.0');
 
 program.command('init').description('Create root goal')
-  .requiredOption('--title <title>').requiredOption('--description <description>')
-  .option('--criteria <criteria>', '', '').option('--cost <n>', '', '3')
+  .requiredOption('--title <title>').requiredOption('--background <background>')
+  .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3')
   .option('--ddl <date>')
   .action((opts) => {
-    const goal = GoalUtils.create(opts.title, opts.description, { cost: parseInt(opts.cost), successCriteria: opts.criteria, ddl: opts.ddl ?? null });
+    const goal = GoalUtils.create(opts.title, opts.background, { cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
     goal.status = 'ready';
     saveGoal(goal);
     console.log('Root goal created: [' + goal.id + '] ' + goal.title);
   });
 
 program.command('add').description('Add child goal')
-  .requiredOption('--parent <goalId>').requiredOption('--title <title>').requiredOption('--description <description>')
-  .option('--criteria <criteria>', '', '').option('--cost <n>', '', '3').option('--deps <ids>', '', '')
+  .requiredOption('--parent <goalId>').requiredOption('--title <title>').requiredOption('--background <background>')
+  .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3').option('--deps <ids>', '', '')
   .option('--ddl <date>')
   .action((opts) => {
     const parent = requireGoal(opts.parent);
     const deps = opts.deps ? opts.deps.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-    const goal = GoalUtils.create(opts.title, opts.description, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.criteria, ddl: opts.ddl ?? null });
+    const goal = GoalUtils.create(opts.title, opts.background, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
     goal.status = 'ready';
     const goals = loadGoals(); goals.set(goal.id, goal);
     const err = validateDdl(goal, goals);
@@ -70,8 +70,13 @@ program.command('update <goalId>').description('Update goal fields')
   });
 
 program.command('list').description('List all goals')
-  .action(() => {
+  .option('--json', 'Output as JSON array')
+  .action((opts) => {
     const goals = loadGoals();
+    if (opts.json) {
+      console.log(JSON.stringify([...goals.values()].map(g => ({ id: g.id, status: g.status, title: g.title, ddl: g.ddl ?? null }))));
+      return;
+    }
     if (goals.size === 0) { console.log('No goals.'); return; }
     console.log('ID         STATUS       DDL         TITLE');
     console.log('-'.repeat(70));
@@ -94,19 +99,6 @@ program.command('context <goalId>').description('Generate context pack')
     if (!pack) { console.error('Error: goal not found.'); process.exit(1); }
     console.log(pack);
   });
-
-program.command('start <goalId>').action((goalId) => {
-  const goal = requireGoal(goalId); goal.status = 'in_progress'; goal.updated_at = nowIso(); saveGoal(goal);
-  console.log('Goal [' + goal.id + '] started.');
-});
-
-program.command('complete <goalId>').option('--evidence <text>', '', '')
-  .action((goalId, opts) => {
-    const goal = requireGoal(goalId); goal.status = 'done'; goal.updated_at = nowIso();
-    if (opts.evidence) goal.notes.push('[done] ' + opts.evidence);
-    saveGoal(goal); console.log('Goal [' + goal.id + '] done.');
-  });
-
 
 program.command('attempt <goalId>')
   .requiredOption('--hypothesis <text>').requiredOption('--action <text>')

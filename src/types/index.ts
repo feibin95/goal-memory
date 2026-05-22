@@ -59,9 +59,17 @@ export const KBEntrySchema = z.object({
 });
 export type KBEntry = z.infer<typeof KBEntrySchema>;
 
+export interface GoalSummary {
+  id: string;
+  title: string;
+  status: GoalStatus;
+  parent_ids: string[];
+  dependencies: string[];
+  created_at: string;
+}
+
+export type GoalDetail = Goal & { attempts: Attempt[] };
+
 export interface AppState {
-  goals: Record<string, Goal>;
-  attempts: Attempt[];
-  kb: KBEntry[];
-  storagePath: string;
+  goals: Record<string, GoalSummary>;
 }
