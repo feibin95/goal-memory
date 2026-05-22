@@ -140,18 +140,20 @@ server.registerTool(
     inputSchema: {
       title: z.string().describe("目标标题"),
       background: z.string().describe("为什么要做这个目标（背景/动机）"),
-      parentIds: z.array(z.string()).optional().describe("父目标 ID 列表（可选）"),
+      parent_ids: z.array(z.string()).optional().describe("父目标 ID 列表（可选）"),
       dependencies: z.array(z.string()).optional().describe("依赖的目标 ID 列表（可选）"),
       cost: z.number().int().min(1).max(10).optional().describe("执行成本 1-10（默认 3）"),
-      successCriteria: z.string().optional().describe("成功标准（可选）"),
+      ddl: z.string().nullable().optional().describe("截止日期 YYYY-MM-DD（可选）"),
+      success_criteria: z.string().optional().describe("成功标准（可选）"),
     },
   },
-  async ({ title, background, parentIds, dependencies, cost, successCriteria }) => {
+  async ({ title, background, parent_ids, dependencies, cost, ddl, success_criteria }) => {
     const goal = GoalUtils.create(title, background, {
-      parentIds: parentIds ?? [],
+      parentIds: parent_ids ?? [],
       dependencies: dependencies ?? [],
       cost: cost ?? 3,
-      successCriteria: successCriteria ?? "",
+      ddl: ddl ?? null,
+      successCriteria: success_criteria ?? "",
     });
     goal.status = "ready";
     saveGoal(goal);
@@ -169,30 +171,38 @@ server.registerTool(
       background: z.string().optional(),
       status: z.enum(["ready", "in_progress", "done"]).optional(),
       cost: z.number().int().min(1).max(10).optional(),
-      successCriteria: z.string().optional(),
+      ddl: z.string().nullable().optional().describe("截止日期 YYYY-MM-DD，传 null 清除"),
+      success_criteria: z.string().optional(),
       note: z.string().optional().describe("追加一条备注"),
+      clearNotes: z.boolean().optional().describe("清空所有备注"),
       addDependencies: z.array(z.string()).optional().describe("追加依赖目标 ID"),
       removeDependencies: z.array(z.string()).optional().describe("移除依赖目标 ID"),
+      addParentIds: z.array(z.string()).optional().describe("追加父目标 ID"),
+      removeParentIds: z.array(z.string()).optional().describe("移除父目标 ID"),
     },
   },
-  async ({ goalId, title, background, status, cost, successCriteria, note, addDependencies, removeDependencies }) => {
+  async ({ goalId, title, background, status, cost, ddl, success_criteria, note, clearNotes, addDependencies, removeDependencies, addParentIds, removeParentIds }) => {
     const goal = getGoal(goalId);
     if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
     if (title !== undefined) goal.title = title;
     if (background !== undefined) goal.background = background;
     if (status !== undefined) goal.status = status;
     if (cost !== undefined) goal.cost = cost;
-    if (successCriteria !== undefined) goal.success_criteria = successCriteria;
+    if (ddl !== undefined) goal.ddl = ddl;
+    if (success_criteria !== undefined) goal.success_criteria = success_criteria;
+    if (clearNotes) goal.notes = [];
     if (note) goal.notes.push(note);
-    if (addDependencies?.length) {
+    if (addDependencies?.length)
       goal.dependencies = [...new Set([...goal.dependencies, ...addDependencies])];
-    }
-    if (removeDependencies?.length) {
+    if (removeDependencies?.length)
       goal.dependencies = goal.dependencies.filter(id => !removeDependencies.includes(id));
-    }
+    if (addParentIds?.length)
+      goal.parent_ids = [...new Set([...goal.parent_ids, ...addParentIds])];
+    if (removeParentIds?.length)
+      goal.parent_ids = goal.parent_ids.filter(id => !removeParentIds.includes(id));
     goal.updated_at = new Date().toISOString();
     saveGoal(goal);
-    return { content: [{ type: "text", text: `Goal [${goalId}] updated. dependencies: [${goal.dependencies.join(", ")}]` }] };
+    return { content: [{ type: "text", text: `Goal [${goalId}] updated.` }] };
   }
 );
 

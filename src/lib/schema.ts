@@ -1,18 +1,14 @@
 import { z } from 'zod';
-import { GoalSchema } from '@/types';
 
-export const goalDetailSchema = GoalSchema.pick({
-  title: true,
-  background: true,
-  success_criteria: true,
-  status: true,
-  cost: true,
-  ddl: true,
-  notes: true,
-}).extend({
-  title: z.string().min(1, '标题不能为空'),
-  background: z.string().min(1, '背景问题不能为空'),
-  cost: z.number().int().min(1).max(10),
+// 表单校验 schema：字段与 GoalSchema 对应，但不带默认值（react-hook-form 要求 input/output 类型一致）
+export const goalDetailSchema = z.object({
+  title:            z.string().min(1, '标题不能为空'),
+  background:       z.string().min(1, '背景问题不能为空'),
+  success_criteria: z.string(),
+  status:           z.enum(['ready', 'in_progress', 'done']),
+  cost:             z.number().int().min(1).max(10),
+  ddl:              z.string().nullable(),
+  notes:            z.array(z.string()),
 });
 
 export type GoalDetailFormValues = z.infer<typeof goalDetailSchema>;
