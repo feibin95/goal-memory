@@ -1,6 +1,6 @@
 export type { GoalStatus, Goal, Attempt, KBEntry } from '@/types';
 import type { Goal, Attempt, KBEntry } from '@/types';
-import { GoalSchema, AttemptSchema, KBEntrySchema } from '@/types';
+import { GoalSchema, AttemptSchema, KBEntrySchema } from '../../types/index.js';
 
 function newId(): string {
   return crypto.randomUUID().slice(0, 8);
