@@ -4,6 +4,7 @@ import { saveGoal, loadGoals, getGoal, saveAttempt } from '../src/lib/core/store
 import { pickNext } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
+import { getSessionGoal, saveSession } from '../src/lib/core/session-store';
 
 function nowIso() { return new Date().toISOString(); }
 function requireGoal(id: string) {
@@ -40,6 +41,32 @@ program.command('add').description('Add child goal')
     if (err) { console.error('Error: ' + err); process.exit(1); }
     saveGoal(goal);
     console.log('Goal added: [' + goal.id + '] ' + goal.title);
+  });
+
+program.command('update <goalId>').description('Update goal fields')
+  .option('--title <title>').option('--status <status>')
+  .option('--cost <n>')
+  .option('--note <text>').option('--clear-notes', 'remove all notes')
+  .option('--add-deps <ids>', 'comma-separated IDs to add as dependencies')
+  .option('--remove-deps <ids>', 'comma-separated IDs to remove from dependencies')
+  .action((goalId, opts) => {
+    const goal = requireGoal(goalId);
+    if (opts.title !== undefined) goal.title = opts.title;
+    if (opts.status !== undefined) goal.status = opts.status;
+    if (opts.cost !== undefined) goal.cost = parseInt(opts.cost);
+    if (opts.clearNotes) goal.notes = [];
+    if (opts.note) goal.notes.push(opts.note);
+    if (opts.addDeps) {
+      const ids = opts.addDeps.split(',').map((s: string) => s.trim()).filter(Boolean);
+      goal.dependencies = [...new Set([...goal.dependencies, ...ids])];
+    }
+    if (opts.removeDeps) {
+      const ids = new Set(opts.removeDeps.split(',').map((s: string) => s.trim()).filter(Boolean));
+      goal.dependencies = goal.dependencies.filter((id: string) => !ids.has(id));
+    }
+    goal.updated_at = nowIso();
+    saveGoal(goal);
+    console.log('Goal [' + goal.id + '] updated. dependencies: [' + goal.dependencies.join(', ') + ']');
   });
 
 program.command('list').description('List all goals')
@@ -103,5 +130,19 @@ kb.command('search <query>').action((query) => {
   if (!results.length) { console.log('No KB entries matched.'); return; }
   for (const e of results) console.log('[' + e.id + '] ' + e.title + '\n  ' + e.body.slice(0, 120) + '\n');
 });
+
+const session = program.command('session');
+session.command('get <sessionKey>').description('Get bound goal ID for a session (empty if none)')
+  .action((sessionKey) => {
+    const goalId = getSessionGoal(sessionKey);
+    console.log(goalId ?? '');
+  });
+session.command('bind <sessionKey> <goalId>').description('Bind a session to a goal')
+  .action((sessionKey, goalId) => {
+    const goal = getGoal(goalId);
+    if (!goal) { console.error('Error: goal ' + goalId + ' not found.'); process.exit(1); }
+    saveSession(sessionKey, goalId);
+    console.log('Session bound: ' + sessionKey + ' -> [' + goalId + '] ' + goal.title);
+  });
 
 program.parseAsync(process.argv).catch((err: Error) => { console.error(err); process.exit(1); });

@@ -1,20 +1,31 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
 import { GoalUtils, validateDdl } from '@/lib/core/models';
 import { saveGoal, loadGoals } from '@/lib/core/store';
 
-export async function POST(req: Request) {
-  const { title, background, parentIds, dependencies, cost, successCriteria, ddl } = await req.json() as Record<string, unknown>;
-  if (!title || !background)
-    return NextResponse.json({ error: 'title and background are required' }, { status: 400 });
+const createGoalSchema = z.object({
+  title:            z.string().min(1),
+  background:       z.string().min(1),
+  parent_ids:       z.array(z.string()).default([]),
+  dependencies:     z.array(z.string()).default([]),
+  cost:             z.number().int().default(3),
+  success_criteria: z.string().default(''),
+  ddl:              z.string().nullable().default(null),
+});
 
-  const goal = GoalUtils.create(String(title), String(background), {
-    parentIds: Array.isArray(parentIds) ? (parentIds as string[]) : [],
-    dependencies: Array.isArray(dependencies) ? (dependencies as string[]) : [],
-    cost: cost ? Number(cost) : 3,
-    successCriteria: successCriteria ? String(successCriteria) : '',
-    ddl: ddl ? String(ddl) : null,
+export async function POST(req: Request) {
+  const parsed = createGoalSchema.safeParse(await req.json());
+  if (!parsed.success)
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
+
+  const { title, background, parent_ids, dependencies, cost, success_criteria, ddl } = parsed.data;
+  const goal = GoalUtils.create(title, background, {
+    parentIds: parent_ids,
+    dependencies,
+    cost,
+    successCriteria: success_criteria,
+    ddl,
   });
-  goal.status = 'ready';
 
   const goals = loadGoals();
   goals.set(goal.id, goal);

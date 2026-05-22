@@ -1,5 +1,6 @@
 export type { GoalStatus, Goal, Attempt, KBEntry } from '@/types';
 import type { Goal, Attempt, KBEntry } from '@/types';
+import { GoalSchema, AttemptSchema, KBEntrySchema } from '@/types';
 
 function newId(): string {
   return crypto.randomUUID().slice(0, 8);
@@ -39,13 +40,18 @@ export const GoalUtils = {
   },
   toDict(g: Goal): Record<string, unknown> { return { ...g }; },
   fromDict(d: Record<string, unknown>): Goal {
-    // 向下兼容：老数据用 parent_id（string|null），迁移为 parent_ids
-    const raw: Record<string, unknown> = { ddl: null, ...d };
+    const raw: Record<string, unknown> = { ...d };
+    // 迁移：parent_id(string|null) → parent_ids(array)
     if (!Array.isArray(raw['parent_ids'])) {
       raw['parent_ids'] = raw['parent_id'] ? [raw['parent_id']] : [];
     }
     delete raw['parent_id'];
-    return raw as unknown as Goal;
+    // 迁移：why → background
+    if (!raw['background'] && raw['why']) raw['background'] = raw['why'];
+    // 迁移：旧 status 值 → 新三态
+    const statusMap: Record<string, string> = { proposed: 'ready', blocked: 'ready', review: 'in_progress', obsolete: 'done' };
+    if (typeof raw['status'] === 'string' && statusMap[raw['status']]) raw['status'] = statusMap[raw['status']];
+    return GoalSchema.parse(raw);
   },
 };
 
@@ -74,7 +80,7 @@ export const AttemptUtils = {
     return { id: newId(), goal_id, hypothesis, action, result, gradient: gradient ?? null, created_at: now() };
   },
   toDict(a: Attempt): Record<string, unknown> { return { ...a }; },
-  fromDict(d: Record<string, unknown>): Attempt { return { gradient: null, ...d } as unknown as Attempt; },
+  fromDict(d: Record<string, unknown>): Attempt { return AttemptSchema.parse(d); },
 };
 
 export const KBEntryUtils = {
@@ -82,5 +88,5 @@ export const KBEntryUtils = {
     return { id: newId(), title, body, tags: tags ?? [], created_at: now() };
   },
   toDict(e: KBEntry): Record<string, unknown> { return { ...e }; },
-  fromDict(d: Record<string, unknown>): KBEntry { return d as unknown as KBEntry; },
+  fromDict(d: Record<string, unknown>): KBEntry { return KBEntrySchema.parse(d); },
 };

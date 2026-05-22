@@ -16,20 +16,20 @@ interface Props {
   onRefresh: () => void; onGoalDeleted: () => void; onDirtyChange?: (dirty: boolean) => void;
 }
 
-interface NewGoalForm { title: string; background: string; successCriteria: string; cost: number; ddl: string; }
+interface NewGoalForm { title: string; background: string; success_criteria: string; cost: number; ddl: string; }
 
 export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, onDirtyChange }: Props) {
   const [addChildModal, setAddChildModal] = useState(false);
-  const [addChildForm, setAddChildForm] = useState<NewGoalForm>({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+  const [addChildForm, setAddChildForm] = useState<NewGoalForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   const [addChildDeps, setAddChildDeps] = useState<string[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const hasAddChildContent = addChildForm.title !== '' || addChildForm.background !== '' || addChildForm.successCriteria !== '' || addChildDeps.length > 0;
+  const hasAddChildContent = addChildForm.title !== '' || addChildForm.background !== '' || addChildForm.success_criteria !== '' || addChildDeps.length > 0;
   const closeAddChildModal = () => {
     if (hasAddChildContent && !window.confirm('已填写的内容将丢失，确认关闭？')) return;
     setAddChildModal(false);
-    setAddChildForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+    setAddChildForm({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
     setAddChildDeps([]);
   };
 
@@ -37,9 +37,9 @@ export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, on
     if (!goal) return;
     setSubmitting(true); setError(null);
     try {
-      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parentIds: [goal.id], successCriteria: addChildForm.successCriteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps });
+      await api.createGoal({ title: addChildForm.title, background: addChildForm.background, parent_ids: [goal.id], success_criteria: addChildForm.success_criteria, cost: addChildForm.cost, ddl: addChildForm.ddl || null, dependencies: addChildDeps });
       setAddChildModal(false);
-      setAddChildForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+      setAddChildForm({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
       setAddChildDeps([]);
       onRefresh();
     } catch (e) { setError((e as Error).message); }
@@ -68,7 +68,7 @@ export function DetailPane({ goal, goals, attempts, onRefresh, onGoalDeleted, on
             <div className="modal-body">
               <label>标题 *<input type="text" value={addChildForm.title} onChange={(e) => setAddChildForm({ ...addChildForm, title: e.target.value })} required /></label>
               <label>背景问题 *<textarea rows={3} value={addChildForm.background} onChange={(e) => setAddChildForm({ ...addChildForm, background: e.target.value })} required /></label>
-              <label>成功标准<input type="text" value={addChildForm.successCriteria} onChange={(e) => setAddChildForm({ ...addChildForm, successCriteria: e.target.value })} /></label>
+              <label>成功标准<input type="text" value={addChildForm.success_criteria} onChange={(e) => setAddChildForm({ ...addChildForm, success_criteria: e.target.value })} /></label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <label>成本<input type="number" min={1} max={10} value={addChildForm.cost} onChange={(e) => setAddChildForm({ ...addChildForm, cost: Number(e.target.value) })} /></label>
                 <label>截止日期<input type="date" value={addChildForm.ddl} onChange={(e) => setAddChildForm({ ...addChildForm, ddl: e.target.value })} /></label>

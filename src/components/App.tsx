@@ -4,17 +4,10 @@ import { GraphPane } from './GraphPane';
 import { DetailPane } from './DetailPane';
 import { ToastProvider } from './Toast';
 import { api } from '@/lib/api';
-import type { Goal, Attempt, KBEntry } from '@/types';
-
-interface AppState {
-  goals: Record<string, Goal>;
-  attempts: Attempt[];
-  kb: KBEntry[];
-  storagePath: string;
-}
+import type { AppState } from '@/types';
 
 interface NewRootForm {
-  title: string; background: string; successCriteria: string; cost: number; ddl: string;
+  title: string; background: string; success_criteria: string; cost: number; ddl: string;
 }
 
 export default function App() {
@@ -22,7 +15,7 @@ export default function App() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [newRootModal, setNewRootModal] = useState(false);
-  const [newRootForm, setNewRootForm] = useState<NewRootForm>({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+  const [newRootForm, setNewRootForm] = useState<NewRootForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   const [newRootError, setNewRootError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const formDirtyRef = useRef(false);
@@ -32,11 +25,11 @@ export default function App() {
     setSelectedId(id);
   };
 
-  const hasNewRootContent = newRootForm.title !== '' || newRootForm.background !== '' || newRootForm.successCriteria !== '';
+  const hasNewRootContent = newRootForm.title !== '' || newRootForm.background !== '' || newRootForm.success_criteria !== '';
   const closeNewRootModal = () => {
     if (hasNewRootContent && !window.confirm('已填写的内容将丢失，确认关闭？')) return;
     setNewRootModal(false);
-    setNewRootForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+    setNewRootForm({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   };
 
   const loadState = async () => {
@@ -57,9 +50,9 @@ export default function App() {
     if (!newRootForm.title || !newRootForm.background) return;
     setSubmitting(true); setNewRootError(null);
     try {
-      const goal = await api.createGoal({ title: newRootForm.title, background: newRootForm.background, successCriteria: newRootForm.successCriteria, cost: newRootForm.cost, ddl: newRootForm.ddl || null });
+      const goal = await api.createGoal({ title: newRootForm.title, background: newRootForm.background, success_criteria: newRootForm.success_criteria, cost: newRootForm.cost, ddl: newRootForm.ddl || null });
       setNewRootModal(false);
-      setNewRootForm({ title: '', background: '', successCriteria: '', cost: 3, ddl: '' });
+      setNewRootForm({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
       await loadState();
       setSelectedId(goal.id);
     } catch (e) { setNewRootError((e as Error).message); }
@@ -91,7 +84,7 @@ export default function App() {
             <div className="modal-body">
               <label>标题 *<input type="text" value={newRootForm.title} onChange={(e) => setNewRootForm({ ...newRootForm, title: e.target.value })} required /></label>
               <label>背景问题 *<textarea rows={3} value={newRootForm.background} onChange={(e) => setNewRootForm({ ...newRootForm, background: e.target.value })} required /></label>
-              <label>成功标准<input type="text" value={newRootForm.successCriteria} onChange={(e) => setNewRootForm({ ...newRootForm, successCriteria: e.target.value })} /></label>
+              <label>成功标准<input type="text" value={newRootForm.success_criteria} onChange={(e) => setNewRootForm({ ...newRootForm, success_criteria: e.target.value })} /></label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <label>成本<input type="number" min={1} max={10} value={newRootForm.cost} onChange={(e) => setNewRootForm({ ...newRootForm, cost: Number(e.target.value) })} /></label>
                 <label>截止日期<input type="date" value={newRootForm.ddl} onChange={(e) => setNewRootForm({ ...newRootForm, ddl: e.target.value })} /></label>
