@@ -54,3 +54,7 @@ export function loadSessions(): SessionRecord[] {
   const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
   return readSessions().filter((r) => new Date(r.created_at) > cutoff);
 }
+
+export function deleteSessionsByGoalId(goalId: string): void {
+  writeSessions(readSessions().filter((r) => r.goal_id !== goalId));
+}

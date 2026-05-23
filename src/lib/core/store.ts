@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Goal, GoalUtils, Attempt, AttemptUtils, KBEntry, KBEntryUtils } from './models';
+import { deleteSessionsByGoalId } from './session-store';
 
 let BASE_DIR = path.join(process.cwd(), '.goal-memory');
 
@@ -74,6 +75,7 @@ export function deleteGoal(goalId: string): boolean {
   rewrite(goalsFile(), updated);
   const attemptRecords = readAll(attemptsFile());
   rewrite(attemptsFile(), attemptRecords.filter((r) => !toDelete.has(r['goal_id'] as string)));
+  for (const id of toDelete) deleteSessionsByGoalId(id);
   return true;
 }
 
