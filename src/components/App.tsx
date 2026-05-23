@@ -30,7 +30,11 @@ export default function App() {
     }
   };
 
-  const closeDetail = () => { setSelectedId(null); setSelectedGoal(null); };
+  const closeDetail = () => {
+    if (formDirtyRef.current && !window.confirm('表单有未保存的修改，关闭将丢失这些内容，确认继续？')) return;
+    setSelectedId(null);
+    setSelectedGoal(null);
+  };
 
   const handleSelectGoal = (id: string) => {
     if (formDirtyRef.current && !window.confirm('表单有未保存的修改，切换目标将丢失这些内容，确认继续？')) return;
