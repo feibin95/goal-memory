@@ -95,34 +95,75 @@ function renderState2(sessionKey, goalId, context, available) {
   return lines.join('\n');
 }
 
+function detectAttemptPhase(files) {
+  if (!files) return 'research';
+
+  const hasCheckboxes = /- \[[x ]\]/i.test(files);
+  if (!hasCheckboxes) return 'research';
+
+  const m = files.match(/## Current Phase\s*\n([^\n]+)/);
+  if (m) {
+    const n = parseInt((m[1].match(/Phase\s*(\d+)/i) || [])[1] || '1', 10);
+    if (n <= 1) return 'planning';
+  }
+  return 'execution';
+}
+
 function renderState3(sessionKey, goalId, attemptId, context, files) {
-  return [
+  const phase = detectAttemptPhase(files);
+
+  const header = [
     '[GoalMem] 执行中',
     '',
     context,
     files ? '\n' + files : '',
     '',
     '---',
-    '## 执行三阶段（按顺序推进）',
-    '',
-    '**[1] 广泛调研**',
-    '  用可用工具（搜索、浏览、find-skills 等）搜集最佳实践和关键信息。',
-    '  每完成 2 个查询操作，将结论汇总到 findings.md（Research Findings / Technical Decisions / Issues / Resources）。',
-    '',
-    '**[2] 写计划**',
-    '  基于调研结论填写 task_plan.md：',
-    '  - Key Questions：待回答的关键问题',
-    '  - Decisions Made：决策 — 理由',
-    '  - Phases：阶段划分（每个阶段必须可完成、可验证）',
-    '  - Current Phase：当前所在阶段',
-    '',
-    '**[3] 执行**',
-    '  按 task_plan.md 推进，每个阶段完成后更新 progress.md（Session Log / Test Results / Error Log）。',
-    '  遇到新情况随时修订 task_plan.md；同一错误绝不重复，每次必须变换方案。',
-    '',
-    '## Attempt 完成后',
-    `  complete_attempt(attemptId="${attemptId}")`,
-  ].filter(s => s !== null).join('\n');
+  ];
+
+  let guidance;
+  if (phase === 'research') {
+    guidance = [
+      '## 执行阶段：调研 & 计划（当前）',
+      '',
+      '**[1] 广泛调研**',
+      '  用可用工具（agent-reach 搜索、codex:rescue、find-skills、本地 kb 知识库等）搜集最佳实践和关键信息。',
+      '  每完成 2 个查询，将结论汇总到 findings.md（Research Findings / Technical Decisions / Issues / Resources）。',
+      '',
+      '**调研完成后判断：能否给出下一步具体动作？**',
+      `  → 不能（目标仍太模糊/太大）→ 用 create_goal 逐一建子目标（title ≤6字，越简洁越好），bind_session 切换到优先级最高的子目标，回到 State 2 重新创建 Attempt（需人工 review 后继续）`,
+      '  → 能 → 继续 [2]',
+      '',
+      '**[2] 写计划**',
+      '  填写 task_plan.md：Key Questions / Decisions Made / Phases（每阶段可完成、可验证）/ Current Phase',
+    ];
+  } else if (phase === 'planning') {
+    guidance = [
+      '## 执行阶段：写计划（当前）',
+      '',
+      '**[2] 写计划**（调研已完成）',
+      '  完善 task_plan.md：',
+      '  - Key Questions：待回答的关键问题',
+      '  - Decisions Made：决策 — 理由',
+      '  - Phases：阶段划分（每阶段必须可完成、可验证）',
+      '  - Current Phase：设置为 Phase 2（标志进入执行）',
+      '',
+      '  计划完成后需人工 review，确认后再进入执行。',
+    ];
+  } else {
+    guidance = [
+      '## 执行阶段：执行中（当前）',
+      '',
+      '**[3] 执行**',
+      '  按 task_plan.md 推进，每个阶段完成后更新 progress.md（Session Log / Test Results / Error Log）。',
+      '  遇到新情况随时修订 task_plan.md；同一错误绝不重复，每次必须变换方案。',
+      '',
+      '## Attempt 完成后',
+      `  complete_attempt(attemptId="${attemptId}")`,
+    ];
+  }
+
+  return [...header, ...guidance].filter(s => s !== null).join('\n');
 }
 
 // ─── 主调度器 ──────────────────────────────────────────────────────────────────
