@@ -17,31 +17,23 @@ function requireGoal(id: string) {
 const program = new Command();
 program.name('goalmem').description('Goal memory runtime CLI').version('1.0.0');
 
-program.command('init').description('Create root goal')
+program.command('create').description('Create a goal (omit --parent for a root goal)')
   .requiredOption('--title <title>').requiredOption('--background <background>')
+  .option('--parent <goalId>', 'Parent goal ID (omit to create a root goal)')
   .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3')
+  .option('--deps <ids>', 'Comma-separated dependency goal IDs', '')
   .option('--ddl <date>')
   .action((opts) => {
-    const draft = GoalUtils.create(opts.title, opts.background, { cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
-    draft.status = 'ready';
-    const goal = saveGoal(draft);
-    console.log('Root goal created: [' + goal.id + '] ' + goal.title);
-  });
-
-program.command('add').description('Add child goal')
-  .requiredOption('--parent <goalId>').requiredOption('--title <title>').requiredOption('--background <background>')
-  .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3').option('--deps <ids>', '', '')
-  .option('--ddl <date>')
-  .action((opts) => {
-    const parent = requireGoal(opts.parent);
+    const parentIds = opts.parent ? [requireGoal(opts.parent).id] : [];
     const deps = opts.deps ? opts.deps.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-    const draft = GoalUtils.create(opts.title, opts.background, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
+    const draft = GoalUtils.create(opts.title, opts.background, { parentIds, dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
     draft.status = 'ready';
-    const goals = loadGoals();
-    const err = validateDdl(draft, goals);  // draft.id='' won't match any existing child
-    if (err) { console.error('Error: ' + err); process.exit(1); }
+    if (parentIds.length > 0) {
+      const err = validateDdl(draft, loadGoals());
+      if (err) { console.error('Error: ' + err); process.exit(1); }
+    }
     const goal = saveGoal(draft);
-    console.log('Goal added: [' + goal.id + '] ' + goal.title);
+    console.log('Goal created: [' + goal.id + '] ' + goal.title);
   });
 
 program.command('update <goalId>').description('Update goal fields')
