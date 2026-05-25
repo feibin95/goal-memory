@@ -2,6 +2,7 @@ import { Goal, GoalUtils, Attempt, AttemptUtils, KBEntry, KBEntryUtils } from '.
 import { getDb, setDbBaseDir } from './db';
 import { deleteSessionsByGoalId, getSessionByAttemptId } from './session-store';
 import path from 'node:path';
+import fs from 'node:fs';
 
 export function setBaseDir(dir: string): void { setDbBaseDir(dir); }
 export function resetBaseDir(): void { setDbBaseDir(path.join(process.cwd())); }
@@ -124,6 +125,12 @@ export function deleteGoal(goalId: string): boolean {
     return parents.some((p) => toDelete.has(p));
   });
 
+  const attemptDirs: string[] = [];
+  for (const id of toDelete) {
+    const rows = db.prepare('SELECT files_dir FROM attempts WHERE goal_id = ?').all(Number(id)) as { files_dir: string }[];
+    for (const r of rows) { if (r.files_dir) attemptDirs.push(r.files_dir); }
+  }
+
   db.transaction(() => {
     for (const row of unlink) {
       const parents: string[] = JSON.parse(row.parent_ids);
@@ -136,6 +143,8 @@ export function deleteGoal(goalId: string): boolean {
       deleteSessionsByGoalId(id);
     }
   })();
+
+  for (const dir of attemptDirs) try { fs.rmSync(dir, { recursive: true, force: true }); } catch (_) {}
 
   return true;
 }
@@ -203,9 +212,10 @@ export function updateAttempt(id: string, patch: Partial<Record<string, unknown>
 export function deleteAttempt(id: string): boolean {
   const db = getDb();
   const numId = Number(id);
-  const exists = db.prepare('SELECT 1 FROM attempts WHERE id = ?').get(numId);
-  if (!exists) return false;
+  const row = db.prepare('SELECT files_dir FROM attempts WHERE id = ?').get(numId) as { files_dir: string } | undefined;
+  if (!row) return false;
   db.prepare('DELETE FROM attempts WHERE id = ?').run(numId);
+  if (row.files_dir) try { fs.rmSync(row.files_dir, { recursive: true, force: true }); } catch (_) {}
   return true;
 }
 
