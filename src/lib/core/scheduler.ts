@@ -4,6 +4,7 @@ import { loadGoals, loadAttempts } from './store';
 export interface GoalListOptions {
   parent_id?: string;
   actionable?: boolean;
+  keyword?: string;
 }
 
 export function isLeaf(goal: Goal, goals: Map<string, Goal>): boolean {
@@ -110,6 +111,10 @@ export function filterGoals(options: GoalListOptions = {}): (Goal & { score?: nu
   let result = [...goals.values()];
   if (options.parent_id) {
     result = result.filter(g => g.parent_ids.includes(options.parent_id!));
+  }
+  if (options.keyword) {
+    const kw = options.keyword.toLowerCase();
+    result = result.filter(g => g.title.toLowerCase().includes(kw) || g.background.toLowerCase().includes(kw));
   }
   if (options.actionable) {
     result = result.filter(g => g.status === 'ready' && isLeaf(g, goals) && depsDone(g, goals));

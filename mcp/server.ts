@@ -47,14 +47,15 @@ server.registerTool(
 server.registerTool(
   "list_goals",
   {
-    description: "列出目标列表。支持按父节点过滤（parent_id）和只列可执行目标（actionable=true，结果按 score 降序）。",
+    description: "列出目标列表。支持按父节点过滤（parent_id）、只列可执行目标（actionable=true，结果按 score 降序）、以及关键词搜索（keyword，匹配 title/background）。",
     inputSchema: {
       parent_id: z.string().optional().describe("仅列出该父节点的直接子目标（可选）"),
       actionable: z.boolean().optional().describe("仅列出可执行目标（status=ready，叶节点，依赖已完成），按评分降序（可选）"),
+      keyword: z.string().optional().describe("关键词过滤，匹配 title 或 background（可选）"),
     },
   },
-  async ({ parent_id, actionable }) => {
-    const goals = filterGoals({ parent_id, actionable });
+  async ({ parent_id, actionable, keyword }) => {
+    const goals = filterGoals({ parent_id, actionable, keyword });
     if (!goals.length) return { content: [{ type: "text", text: "No goals found." }] };
     return { content: [{ type: "text", text: JSON.stringify(goals, null, 2) }] };
   }

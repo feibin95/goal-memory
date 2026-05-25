@@ -67,8 +67,9 @@ program.command('list').description('List goals')
   .option('--json', 'Output as JSON array')
   .option('--parent <goalId>', 'Filter by parent goal ID')
   .option('--actionable', 'Only show actionable goals, sorted by score')
+  .option('--keyword <kw>', 'Filter by keyword (matches title and background)')
   .action((opts) => {
-    const goals = filterGoals({ parent_id: opts.parent, actionable: opts.actionable });
+    const goals = filterGoals({ parent_id: opts.parent, actionable: opts.actionable, keyword: opts.keyword });
     if (opts.json) {
       console.log(JSON.stringify(goals.map(g => ({ id: g.id, status: g.status, title: g.title, ddl: g.ddl ?? null, ...((g as { score?: number }).score !== undefined ? { score: (g as { score?: number }).score } : {}) }))));
       return;

@@ -47,23 +47,10 @@ function fetchAttemptFiles(attemptId) {
 
 // ─── 阶段渲染 ──────────────────────────────────────────────────────────────────
 
-function renderState1(sessionKey, goals) {
-  const numbered = goals.map((g, i) =>
-    `${i + 1}. [${g.status}] ${g.title}（ID: ${g.id}）`
-  ).join('\n');
-
+function renderState1(sessionKey) {
   return [
-    '[GoalMem] 当前会话尚未绑定目标',
-    '',
-    '目标列表：',
-    numbered,
-    '',
-    '请按顺序执行：',
-    `1. bind_session(sessionKey="${sessionKey}", goalId="<选择的ID>") 绑定目标`,
-    `2. create_attempt(goalId="<同上>", sessionKey="${sessionKey}") 创建 Attempt`,
-    '两步完成后即进入执行阶段。',
-    '',
-    `如需临时会话（不绑定目标）：bind_session(sessionKey="${sessionKey}", goalId="NONE")`,
+    '[GoalMem] 当前会话尚未绑定目标，请告知要执行的目标名称。',
+    `如需临时会话：bind_session(sessionKey="${sessionKey}", goalId="NONE")`,
   ].join('\n');
 }
 
@@ -129,7 +116,7 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
       '**[1] 广泛调研**',
       '  用可用工具（agent-reach 搜索、codex:rescue、find-skills、本地 kb 知识库等）搜集最佳实践和关键信息。',
       '  每完成 2 个查询，将结论汇总到 findings.md（Research Findings / Technical Decisions / Issues / Resources）。',
-      '  **注意：只关注当前目标及其关联目标，不要查看其他无关目标。**',
+      '  **注意：调研只基于当前目标上下文。如有必要可查看子目标或兄弟目标，但其他无关目标不应影响调研。**',
       '',
       '**调研完成后判断：能否给出下一步具体动作？**',
       `  → 不能（目标仍太模糊/太大）→ 用 create_goal 逐一建子目标（title ≤6字，越简洁越好），bind_session 切换到优先级最高的子目标，回到 State 2 重新创建 Attempt（需人工 review 后继续）`,
@@ -173,9 +160,7 @@ function buildStateContext(sessionKey) {
   const { goal_id: goalId, attempt_id: attemptId } = fetchSession(sessionKey);
 
   if (!goalId) {
-    const goals = fetchGoals();
-    if (!goals?.length) return null;
-    return renderState1(sessionKey, goals);
+    return renderState1(sessionKey);
   }
 
   if (goalId === 'NONE') return null;
