@@ -37,7 +37,7 @@ program.command('create').description('Create a goal (omit --parent for a root g
   });
 
 program.command('update <goalId>').description('Update goal fields')
-  .option('--title <title>').option('--status <status>')
+  .option('--title <title>').option('--background <background>').option('--status <status>')
   .option('--cost <n>')
   .option('--note <text>').option('--clear-notes', 'remove all notes')
   .option('--add-deps <ids>', 'comma-separated IDs to add as dependencies')
@@ -45,6 +45,7 @@ program.command('update <goalId>').description('Update goal fields')
   .action((goalId, opts) => {
     const goal = requireGoal(goalId);
     if (opts.title !== undefined) goal.title = opts.title;
+    if (opts.background !== undefined) goal.background = opts.background;
     if (opts.status !== undefined) goal.status = opts.status;
     if (opts.cost !== undefined) goal.cost = parseInt(opts.cost);
     if (opts.clearNotes) goal.notes = [];

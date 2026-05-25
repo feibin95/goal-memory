@@ -129,6 +129,7 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
       '**[1] 广泛调研**',
       '  用可用工具（agent-reach 搜索、codex:rescue、find-skills、本地 kb 知识库等）搜集最佳实践和关键信息。',
       '  每完成 2 个查询，将结论汇总到 findings.md（Research Findings / Technical Decisions / Issues / Resources）。',
+      '  **注意：只关注当前目标及其关联目标，不要查看其他无关目标。**',
       '',
       '**调研完成后判断：能否给出下一步具体动作？**',
       `  → 不能（目标仍太模糊/太大）→ 用 create_goal 逐一建子目标（title ≤6字，越简洁越好），bind_session 切换到优先级最高的子目标，回到 State 2 重新创建 Attempt（需人工 review 后继续）`,
