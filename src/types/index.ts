@@ -21,7 +21,7 @@ export type Goal = z.infer<typeof GoalSchema>;
 
 // 表单校验 schema：不带默认值，react-hook-form 要求 input/output 类型一致
 export const goalDetailSchema = z.object({
-  title:            z.string().min(1, '标题不能为空'),
+  title:            z.string().min(1, '标题不能为空').max(6, '标题不能超过 6 个字'),
   background:       z.string().min(1, '背景问题不能为空'),
   success_criteria: z.string(),
   status:           GoalStatusSchema,

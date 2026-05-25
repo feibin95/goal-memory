@@ -195,7 +195,7 @@ server.registerTool(
   {
     description: "创建新目标",
     inputSchema: {
-      title: z.string().describe("目标标题"),
+      title: z.string().max(6, "目标标题不能超过 6 个字").describe("目标标题（≤6字，越简洁越好）"),
       background: z.string().describe("为什么要做这个目标（背景/动机）"),
       parent_ids: z.array(z.string()).optional().describe("父目标 ID 列表（可选）"),
       dependencies: z.array(z.string()).optional().describe("本目标的阻塞项（blocked by）：执行前必须完成的目标 ID 列表（可选）"),
