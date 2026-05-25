@@ -1,13 +1,13 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { setBaseDir, loadGoals, loadAttempts, getGoal, saveGoal, deleteGoal, saveAttempt, saveKbEntry, getAttemptById, updateAttempt, deleteAttempt, getAvailableAttempts } from "../src/lib/core/store.js";
+import { setBaseDir, loadGoals, loadAttempts, getGoal, saveGoal, deleteGoal, saveAttempt, saveKbEntry, getAttemptById, updateAttempt, deleteAttempt, getAvailableAttempts, nextAttemptSeq } from "../src/lib/core/store.js";
 import { pickNext, candidateGoals, filterGoals } from "../src/lib/core/scheduler.js";
 import { buildContextPack } from "../src/lib/core/context.js";
 import { search } from "../src/lib/core/kb.js";
 import { GoalUtils, AttemptUtils, KBEntryUtils } from "../src/lib/core/models.js";
 import { saveSession, getSessionGoal, getSession, setSessionBaseDir, bindAttempt } from "../src/lib/core/session-store.js";
-import { setAttemptFilesBaseDir, createAttemptFiles, formatAttemptFilesForContext } from "../src/lib/core/attempt-files.js";
+import { setAttemptFilesBaseDir, createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from "../src/lib/core/attempt-files.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
@@ -101,15 +101,15 @@ server.registerTool(
       };
     }
 
-    const id = crypto.randomUUID().slice(0, 8);
-    const filesDir = createAttemptFiles(id, goal);
-    const attempt = AttemptUtils.createActive(goal.id, filesDir, hypothesis ?? "", id);
-    saveAttempt(attempt);
-    bindAttempt(sessionKey, id);
+    const seq = nextAttemptSeq(goal.id);
+    const dirName = buildAttemptDirName(goal.title, seq);
+    const filesDir = createAttemptFiles(dirName, goal);
+    const attempt = saveAttempt(AttemptUtils.createActive(goal.id, filesDir, hypothesis ?? ""));
+    bindAttempt(sessionKey, attempt.id);
     return {
       content: [{
         type: "text",
-        text: `Attempt [${id}] created for goal "${goal.title}".\nPlanning files at: ${filesDir}\nSession "${sessionKey}" bound to this attempt.`,
+        text: `Attempt [${attempt.id}] created for goal "${goal.title}".\nPlanning files at: ${filesDir}\nSession "${sessionKey}" bound to this attempt.`,
       }],
     };
   }
@@ -205,15 +205,15 @@ server.registerTool(
     },
   },
   async ({ title, background, parent_ids, dependencies, cost, ddl, success_criteria }) => {
-    const goal = GoalUtils.create(title, background, {
+    const draft = GoalUtils.create(title, background, {
       parentIds: parent_ids ?? [],
       dependencies: dependencies ?? [],
       cost: cost ?? 3,
       ddl: ddl ?? null,
       successCriteria: success_criteria ?? "",
     });
-    goal.status = "ready";
-    saveGoal(goal);
+    draft.status = "ready";
+    const goal = saveGoal(draft);
     return { content: [{ type: "text", text: `Goal created: [${goal.id}] "${goal.title}"` }] };
   }
 );

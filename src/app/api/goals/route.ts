@@ -28,7 +28,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
   const { title, background, parent_ids, dependencies, cost, success_criteria, ddl } = parsed.data;
-  const goal = GoalUtils.create(title, background, {
+  const draft = GoalUtils.create(title, background, {
     parentIds: parent_ids,
     dependencies,
     cost,
@@ -37,10 +37,9 @@ export async function POST(req: Request) {
   });
 
   const goals = loadGoals();
-  goals.set(goal.id, goal);
-  const err = validateDdl(goal, goals);
+  const err = validateDdl(draft, goals);  // draft.id='' won't match any existing child
   if (err) return NextResponse.json({ error: err }, { status: 400 });
 
-  saveGoal(goal);
+  const goal = saveGoal(draft);
   return NextResponse.json(goal, { status: 201 });
 }

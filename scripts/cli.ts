@@ -1,11 +1,11 @@
 import { Command } from 'commander';
 import { GoalUtils, AttemptUtils, validateDdl } from '../src/lib/core/models';
-import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt } from '../src/lib/core/store';
+import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt, nextAttemptSeq } from '../src/lib/core/store';
 import { filterGoals, pickNext, candidateGoals } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
 import { getSessionGoal, saveSession, getSession, bindAttempt } from '../src/lib/core/session-store';
-import { createAttemptFiles, formatAttemptFilesForContext } from '../src/lib/core/attempt-files';
+import { createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from '../src/lib/core/attempt-files';
 
 function nowIso() { return new Date().toISOString(); }
 function requireGoal(id: string) {
@@ -22,9 +22,9 @@ program.command('init').description('Create root goal')
   .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3')
   .option('--ddl <date>')
   .action((opts) => {
-    const goal = GoalUtils.create(opts.title, opts.background, { cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
-    goal.status = 'ready';
-    saveGoal(goal);
+    const draft = GoalUtils.create(opts.title, opts.background, { cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
+    draft.status = 'ready';
+    const goal = saveGoal(draft);
     console.log('Root goal created: [' + goal.id + '] ' + goal.title);
   });
 
@@ -35,12 +35,12 @@ program.command('add').description('Add child goal')
   .action((opts) => {
     const parent = requireGoal(opts.parent);
     const deps = opts.deps ? opts.deps.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
-    const goal = GoalUtils.create(opts.title, opts.background, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
-    goal.status = 'ready';
-    const goals = loadGoals(); goals.set(goal.id, goal);
-    const err = validateDdl(goal, goals);
+    const draft = GoalUtils.create(opts.title, opts.background, { parentIds: [parent.id], dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
+    draft.status = 'ready';
+    const goals = loadGoals();
+    const err = validateDdl(draft, goals);  // draft.id='' won't match any existing child
     if (err) { console.error('Error: ' + err); process.exit(1); }
-    saveGoal(goal);
+    const goal = saveGoal(draft);
     console.log('Goal added: [' + goal.id + '] ' + goal.title);
   });
 
@@ -159,11 +159,11 @@ attempt.command('create <goalId>').description('Create an active attempt with pl
   .option('--hypothesis <text>', 'Initial hypothesis', '')
   .action((goalId, opts) => {
     const goal = requireGoal(goalId);
-    const id = crypto.randomUUID().slice(0, 8);
-    const filesDir = createAttemptFiles(id, goal);
-    const a = AttemptUtils.createActive(goal.id, filesDir, opts.hypothesis, id);
-    saveAttempt(a);
-    console.log(JSON.stringify({ attemptId: id, filesDir }));
+    const seq = nextAttemptSeq(goal.id);
+    const dirName = buildAttemptDirName(goal.title, seq);
+    const filesDir = createAttemptFiles(dirName, goal);
+    const a = saveAttempt(AttemptUtils.createActive(goal.id, filesDir, opts.hypothesis));
+    console.log(JSON.stringify({ attemptId: a.id, filesDir }));
   });
 
 attempt.command('update <attemptId>').description('Update attempt fields (set --status completed to finish)')

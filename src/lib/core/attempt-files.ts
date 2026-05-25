@@ -8,12 +8,18 @@ export function setAttemptFilesBaseDir(dir: string): void {
   BASE_DIR = path.join(dir, '.goal-memory');
 }
 
-export function getAttemptFilesDir(attemptId: string): string {
-  return path.join(BASE_DIR, 'attempts', attemptId);
+export function buildAttemptDirName(goalTitle: string, seq: number): string {
+  const date = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // "YYMMDD"
+  const safeTitle = goalTitle.replace(/[/\\:*?"<>|]/g, '-');
+  return `${safeTitle}-${date}-${seq}`;
 }
 
-export function createAttemptFiles(attemptId: string, goal: Goal): string {
-  const dir = getAttemptFilesDir(attemptId);
+export function getAttemptFilesDir(dirName: string): string {
+  return path.join(BASE_DIR, 'attempts', dirName);
+}
+
+export function createAttemptFiles(dirName: string, goal: Goal): string {
+  const dir = getAttemptFilesDir(dirName);
   fs.mkdirSync(dir, { recursive: true });
 
   const today = new Date().toISOString().slice(0, 10);

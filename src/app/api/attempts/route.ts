@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { getGoal, saveAttempt, loadAttempts, getAvailableAttempts } from '@/lib/core/store';
+import { getGoal, saveAttempt, loadAttempts, getAvailableAttempts, nextAttemptSeq } from '@/lib/core/store';
 import { AttemptUtils } from '@/lib/core/models';
-import { createAttemptFiles } from '@/lib/core/attempt-files';
+import { createAttemptFiles, buildAttemptDirName } from '@/lib/core/attempt-files';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -29,9 +29,9 @@ export async function POST(req: Request) {
   const goal = getGoal(goalId);
   if (!goal) return NextResponse.json({ error: 'goal not found' }, { status: 404 });
 
-  const id = crypto.randomUUID().slice(0, 8);
-  const filesDir = createAttemptFiles(id, goal);
-  const attempt = AttemptUtils.createActive(goalId, filesDir, hypothesis, id);
-  saveAttempt(attempt);
-  return NextResponse.json(attempt, { status: 201 });
+  const seq = nextAttemptSeq(goalId);
+  const dirName = buildAttemptDirName(goal.title, seq);
+  const filesDir = createAttemptFiles(dirName, goal);
+  const saved = saveAttempt(AttemptUtils.createActive(goalId, filesDir, hypothesis));
+  return NextResponse.json(saved, { status: 201 });
 }
