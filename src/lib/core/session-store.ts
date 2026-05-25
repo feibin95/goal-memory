@@ -15,6 +15,7 @@ const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
 const SessionRecordSchema = z.object({
   session_key: z.string(),
   goal_id:     z.string(),
+  attempt_id:  z.string().optional(),
   created_at:  z.string(),
 });
 type SessionRecord = z.infer<typeof SessionRecordSchema>;
@@ -48,6 +49,30 @@ export function getSessionGoal(sessionKey: string): string | null {
     .filter((r) => new Date(r.created_at) > cutoff)
     .find((r) => r.session_key === sessionKey);
   return record?.goal_id ?? null;
+}
+
+export function getSession(sessionKey: string): SessionRecord | null {
+  const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
+  return readSessions()
+    .filter((r) => new Date(r.created_at) > cutoff)
+    .find((r) => r.session_key === sessionKey) ?? null;
+}
+
+export function bindAttempt(sessionKey: string, attemptId: string): void {
+  ensureDir();
+  const records = readSessions();
+  const idx = records.findIndex((r) => r.session_key === sessionKey);
+  if (idx !== -1) {
+    records[idx] = { ...records[idx], attempt_id: attemptId };
+    writeSessions(records);
+  }
+}
+
+export function getSessionByAttemptId(attemptId: string): SessionRecord | null {
+  const cutoff = new Date(Date.now() - SEVEN_DAYS_MS);
+  return readSessions()
+    .filter((r) => new Date(r.created_at) > cutoff)
+    .find((r) => r.attempt_id === attemptId) ?? null;
 }
 
 export function loadSessions(): SessionRecord[] {

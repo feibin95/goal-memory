@@ -34,6 +34,8 @@ export type GoalDetailFormValues = z.infer<typeof goalDetailSchema>;
 export const AttemptSchema = z.object({
   id:         z.string(),
   goal_id:    z.string(),
+  status:     z.enum(['active', 'completed', 'abandoned']).default('completed'),
+  files_dir:  z.string().default(''),
   hypothesis: z.string(),
   action:     z.string(),
   result:     z.string(),

@@ -1,18 +1,20 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { setBaseDir, loadGoals, getGoal, saveGoal, saveAttempt, saveKbEntry } from "../src/lib/core/store.js";
+import { setBaseDir, loadGoals, getGoal, saveGoal, saveAttempt, saveKbEntry, getActiveAttempt, getAttemptById, updateAttempt } from "../src/lib/core/store.js";
 import { pickNext, candidateGoals } from "../src/lib/core/scheduler.js";
 import { buildContextPack } from "../src/lib/core/context.js";
 import { search } from "../src/lib/core/kb.js";
 import { GoalUtils, AttemptUtils, KBEntryUtils } from "../src/lib/core/models.js";
-import { saveSession, getSessionGoal, setSessionBaseDir } from "../src/lib/core/session-store.js";
+import { saveSession, getSessionGoal, getSession, setSessionBaseDir, bindAttempt } from "../src/lib/core/session-store.js";
+import { setAttemptFilesBaseDir, createAttemptFiles, formatAttemptFilesForContext } from "../src/lib/core/attempt-files.js";
 import { fileURLToPath } from "node:url";
 import path from "node:path";
 
 const PROJECT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 setBaseDir(PROJECT_DIR);
 setSessionBaseDir(PROJECT_DIR);
+setAttemptFilesBaseDir(PROJECT_DIR);
 
 const server = new McpServer({ name: "goal-memory", version: "1.0.0" });
 
@@ -96,6 +98,85 @@ server.registerTool(
     const attempt = AttemptUtils.create(goalId, hypothesis, action, result, gradient ?? null);
     saveAttempt(attempt);
     return { content: [{ type: "text", text: `Attempt [${attempt.id}] recorded for goal "${goal.title}".` }] };
+  }
+);
+
+server.registerTool(
+  "start_attempt",
+  {
+    description: "为当前会话创建一个执行 Attempt，自动生成 task_plan.md / findings.md / progress.md 三个规划文件，并将 session 绑定到此 Attempt。若传入 existingAttemptId 则直接绑定已有 Attempt，不新建文件。",
+    inputSchema: {
+      goalId: z.string().describe("目标 ID"),
+      sessionKey: z.string().describe("会话标识（transcript 文件名，不含 .jsonl）"),
+      hypothesis: z.string().optional().describe("本次执行的初始假设（可选）"),
+      existingAttemptId: z.string().optional().describe("若要恢复已有 Attempt，传入其 ID（可选）"),
+    },
+  },
+  async ({ goalId, sessionKey, hypothesis, existingAttemptId }) => {
+    const goal = getGoal(goalId);
+    if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
+
+    if (existingAttemptId) {
+      const existing = getAttemptById(existingAttemptId);
+      if (!existing) return { content: [{ type: "text", text: `Attempt not found: ${existingAttemptId}` }] };
+      bindAttempt(sessionKey, existingAttemptId);
+      return {
+        content: [{
+          type: "text",
+          text: `Session "${sessionKey}" resumed Attempt [${existingAttemptId}].\nFiles dir: ${existing.files_dir}`,
+        }],
+      };
+    }
+
+    const id = crypto.randomUUID().slice(0, 8);
+    const filesDir = createAttemptFiles(id, goal);
+    const attempt = AttemptUtils.createActive(goal.id, filesDir, hypothesis ?? "", id);
+    saveAttempt(attempt);
+    bindAttempt(sessionKey, id);
+    return {
+      content: [{
+        type: "text",
+        text: `Attempt [${id}] created for goal "${goal.title}".\nPlanning files at: ${filesDir}\nSession "${sessionKey}" bound to this attempt.`,
+      }],
+    };
+  }
+);
+
+server.registerTool(
+  "complete_attempt",
+  {
+    description: "完成一个执行 Attempt，记录实际行动、结果和梯度评分",
+    inputSchema: {
+      attemptId: z.string().describe("Attempt ID"),
+      action: z.string().describe("实际执行了什么"),
+      result: z.string().describe("观察到的结果"),
+      gradient: z.number().nullable().optional().describe("进展评分（-1 到 +1，可选）"),
+    },
+  },
+  async ({ attemptId, action, result, gradient }) => {
+    const ok = updateAttempt(attemptId, {
+      status: "completed",
+      action,
+      result,
+      ...(gradient != null ? { gradient } : {}),
+    });
+    if (!ok) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
+    return { content: [{ type: "text", text: `Attempt [${attemptId}] marked as completed.` }] };
+  }
+);
+
+server.registerTool(
+  "get_attempt_context",
+  {
+    description: "获取 Attempt 的三个规划文件内容（task_plan.md / findings.md / progress.md）",
+    inputSchema: { attemptId: z.string().describe("Attempt ID") },
+  },
+  async ({ attemptId }) => {
+    const attempt = getAttemptById(attemptId);
+    if (!attempt) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
+    const formatted = formatAttemptFilesForContext(attemptId, attempt.files_dir);
+    if (!formatted) return { content: [{ type: "text", text: `No planning files found for attempt ${attemptId}.` }] };
+    return { content: [{ type: "text", text: formatted }] };
   }
 );
 
@@ -232,11 +313,12 @@ server.registerTool(
     },
   },
   async ({ sessionKey }) => {
-    const goalId = getSessionGoal(sessionKey);
-    if (!goalId) return { content: [{ type: "text", text: `No goal bound to session "${sessionKey}".` }] };
-    const goal = getGoal(goalId);
+    const s = getSession(sessionKey);
+    if (!s?.goal_id) return { content: [{ type: "text", text: `No goal bound to session "${sessionKey}".` }] };
+    const goal = getGoal(s.goal_id);
     const title = goal?.title ?? "(unknown)";
-    return { content: [{ type: "text", text: `Session "${sessionKey}" is bound to goal [${goalId}] "${title}".` }] };
+    const attemptInfo = s.attempt_id ? ` | Attempt: [${s.attempt_id}]` : " | No active attempt";
+    return { content: [{ type: "text", text: `Session "${sessionKey}" → goal [${s.goal_id}] "${title}"${attemptInfo}` }] };
   }
 );
 

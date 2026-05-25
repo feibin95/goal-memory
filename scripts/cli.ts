@@ -1,10 +1,11 @@
 import { Command } from 'commander';
 import { GoalUtils, AttemptUtils, validateDdl } from '../src/lib/core/models';
-import { saveGoal, loadGoals, getGoal, saveAttempt } from '../src/lib/core/store';
+import { saveGoal, loadGoals, getGoal, saveAttempt, getActiveAttempt, getAvailableAttempts, getAttemptById, updateAttempt } from '../src/lib/core/store';
 import { pickNext } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
-import { getSessionGoal, saveSession } from '../src/lib/core/session-store';
+import { getSessionGoal, saveSession, getSession, bindAttempt } from '../src/lib/core/session-store';
+import { createAttemptFiles, formatAttemptFilesForContext } from '../src/lib/core/attempt-files';
 
 function nowIso() { return new Date().toISOString(); }
 function requireGoal(id: string) {
@@ -100,7 +101,7 @@ program.command('context <goalId>').description('Generate context pack')
     console.log(pack);
   });
 
-program.command('attempt <goalId>')
+program.command('record-attempt <goalId>').description('Record a completed attempt')
   .requiredOption('--hypothesis <text>').requiredOption('--action <text>')
   .requiredOption('--result <text>').option('--gradient <number>')
   .action((goalId, opts) => {
@@ -109,6 +110,46 @@ program.command('attempt <goalId>')
     const attempt = AttemptUtils.create(goal.id, opts.hypothesis, opts.action, opts.result, gradient);
     saveAttempt(attempt);
     console.log('Attempt [' + attempt.id + '] recorded.');
+  });
+
+const attempt = program.command('attempt').description('Manage execution attempts');
+
+attempt.command('create <goalId>').description('Create an active attempt with planning files')
+  .option('--hypothesis <text>', 'Initial hypothesis', '')
+  .action((goalId, opts) => {
+    const goal = requireGoal(goalId);
+    const id = crypto.randomUUID().slice(0, 8);
+    const filesDir = createAttemptFiles(id, goal);
+    const a = AttemptUtils.createActive(goal.id, filesDir, opts.hypothesis, id);
+    saveAttempt(a);
+    console.log(JSON.stringify({ attemptId: id, filesDir }));
+  });
+
+attempt.command('complete <attemptId>').description('Mark an attempt as completed')
+  .requiredOption('--action <text>').requiredOption('--result <text>').option('--gradient <number>')
+  .action((attemptId, opts) => {
+    const gradient = opts.gradient != null ? parseFloat(opts.gradient) : null;
+    const ok = updateAttempt(attemptId, { status: 'completed', action: opts.action, result: opts.result, ...(gradient !== null ? { gradient } : {}) });
+    if (!ok) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
+    console.log('Attempt [' + attemptId + '] completed.');
+  });
+
+attempt.command('active <goalId>').description('Get the active attempt for a goal (JSON)')
+  .action((goalId) => {
+    const a = getActiveAttempt(goalId);
+    console.log(a ? JSON.stringify(a) : '');
+  });
+
+attempt.command('available <goalId>').description('List active attempts not owned by any live session')
+  .action((goalId) => {
+    console.log(JSON.stringify(getAvailableAttempts(goalId)));
+  });
+
+attempt.command('files <attemptId>').description('Show planning file content for an attempt')
+  .action((attemptId) => {
+    const a = getAttemptById(attemptId);
+    if (!a) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
+    console.log(formatAttemptFilesForContext(attemptId, a.files_dir));
   });
 
 const kb = program.command('kb');
@@ -129,12 +170,24 @@ session.command('get <sessionKey>').description('Get bound goal ID for a session
     const goalId = getSessionGoal(sessionKey);
     console.log(goalId ?? '');
   });
+session.command('get-full <sessionKey>').description('Get session record as JSON {goal_id, attempt_id}')
+  .action((sessionKey) => {
+    const s = getSession(sessionKey);
+    console.log(s ? JSON.stringify({ goal_id: s.goal_id, attempt_id: s.attempt_id ?? null }) : '{}');
+  });
 session.command('bind <sessionKey> <goalId>').description('Bind a session to a goal')
   .action((sessionKey, goalId) => {
     const goal = getGoal(goalId);
     if (!goal) { console.error('Error: goal ' + goalId + ' not found.'); process.exit(1); }
     saveSession(sessionKey, goalId);
     console.log('Session bound: ' + sessionKey + ' -> [' + goalId + '] ' + goal.title);
+  });
+session.command('bind-attempt <sessionKey> <attemptId>').description('Bind a session to an attempt')
+  .action((sessionKey, attemptId) => {
+    const a = getAttemptById(attemptId);
+    if (!a) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
+    bindAttempt(sessionKey, attemptId);
+    console.log('Session ' + sessionKey + ' bound to attempt [' + attemptId + '].');
   });
 
 program.parseAsync(process.argv).catch((err: Error) => { console.error(err); process.exit(1); });

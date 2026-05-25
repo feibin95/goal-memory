@@ -1,4 +1,4 @@
-import type { AppState, Goal, GoalDetail } from '@/types';
+import type { AppState, Goal, GoalDetail, Attempt } from '@/types';
 import type { GoalDetailFormValues, AttemptFormValues } from '@/types';
 
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
@@ -24,7 +24,7 @@ export const api = {
   getGoal: (id: string) =>
     req<GoalDetail>(`/api/goals/${id}`),
 
-  updateGoal: (id: string, data: GoalDetailFormValues & { parent_ids?: string[] }) =>
+  updateGoal: (id: string, data: GoalDetailFormValues & { parent_ids?: string[]; dependencies?: string[] }) =>
     req<Goal>(`/api/goals/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
 
   deleteGoal: (id: string) =>
@@ -32,6 +32,12 @@ export const api = {
 
   createAttempt: (goalId: string, data: AttemptFormValues) =>
     req('/api/attempts', { method: 'POST', body: JSON.stringify({ ...data, goalId }) }),
+
+  updateAttempt: (id: string, data: Partial<AttemptFormValues>) =>
+    req<Attempt>(`/api/attempts/${id}`, { method: 'PUT', body: JSON.stringify(data) }),
+
+  deleteAttempt: (id: string) =>
+    req<{ deleted: string }>(`/api/attempts/${id}`, { method: 'DELETE' }),
 
   getContext: (goalId: string) =>
     req<{ markdown: string }>(`/api/context/${goalId}`),

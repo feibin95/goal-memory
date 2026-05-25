@@ -77,7 +77,10 @@ export const AttemptUtils = {
     goal_id: string, hypothesis: string, action: string, result: string,
     gradient?: number | null
   ): Attempt {
-    return { id: newId(), goal_id, hypothesis, action, result, gradient: gradient ?? null, created_at: now() };
+    return { id: newId(), goal_id, status: 'completed', files_dir: '', hypothesis, action, result, gradient: gradient ?? null, created_at: now() };
+  },
+  createActive(goal_id: string, files_dir: string, hypothesis?: string, id?: string): Attempt {
+    return { id: id ?? newId(), goal_id, status: 'active', files_dir, hypothesis: hypothesis ?? '', action: '', result: '', gradient: null, created_at: now() };
   },
   toDict(a: Attempt): Record<string, unknown> { return { ...a }; },
   fromDict(d: Record<string, unknown>): Attempt { return AttemptSchema.parse(d); },

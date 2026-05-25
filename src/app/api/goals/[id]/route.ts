@@ -13,6 +13,7 @@ const updateGoalSchema = z.object({
   ddl:              z.string().nullable().optional(),
   notes:            z.array(z.string()).optional(),
   parent_ids:       z.array(z.string()).optional(),
+  dependencies:     z.array(z.string()).optional(),
 });
 
 type Ctx = { params: Promise<{ id: string }> };
@@ -25,7 +26,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   const parsed = updateGoalSchema.safeParse(await req.json());
   if (!parsed.success) return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const { title, background, success_criteria, status, cost, ddl, notes, parent_ids } = parsed.data;
+  const { title, background, success_criteria, status, cost, ddl, notes, parent_ids, dependencies } = parsed.data;
   if (title !== undefined) goal.title = title;
   if (background !== undefined) goal.background = background;
   if (success_criteria !== undefined) goal.success_criteria = success_criteria;
@@ -34,6 +35,7 @@ export async function PUT(req: Request, { params }: Ctx) {
   if (ddl !== undefined) goal.ddl = ddl;
   if (notes !== undefined) goal.notes = notes;
   if (parent_ids !== undefined) goal.parent_ids = parent_ids;
+  if (dependencies !== undefined) goal.dependencies = dependencies;
   goal.updated_at = new Date().toISOString();
 
   const goals = loadGoals();

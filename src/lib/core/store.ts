@@ -1,7 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { Goal, GoalUtils, Attempt, AttemptUtils, KBEntry, KBEntryUtils } from './models';
-import { deleteSessionsByGoalId } from './session-store';
+import { deleteSessionsByGoalId, getSessionByAttemptId } from './session-store';
 
 let BASE_DIR = path.join(process.cwd(), '.goal-memory');
 
@@ -90,6 +90,39 @@ export function loadAttempts(): Attempt[] {
 
 export function attemptsForGoal(goalId: string): Attempt[] {
   return loadAttempts().filter((a) => a.goal_id === goalId);
+}
+
+export function getAttemptById(id: string): Attempt | null {
+  return loadAttempts().find((a) => a.id === id) ?? null;
+}
+
+export function getActiveAttempt(goalId: string): Attempt | null {
+  return loadAttempts()
+    .filter((a) => a.goal_id === goalId && a.status === 'active')
+    .sort((a, b) => b.created_at.localeCompare(a.created_at))[0] ?? null;
+}
+
+// active 且未被任何 live session 持有（可安全续接），按创建时间倒序
+export function getAvailableAttempts(goalId: string): Attempt[] {
+  return loadAttempts()
+    .filter((a) => a.goal_id === goalId && a.status === 'active' && !getSessionByAttemptId(a.id))
+    .sort((a, b) => b.created_at.localeCompare(a.created_at));
+}
+
+export function updateAttempt(id: string, patch: Partial<Record<string, unknown>>): boolean {
+  const records = readAll(attemptsFile());
+  const idx = records.findIndex((r) => r['id'] === id);
+  if (idx === -1) return false;
+  records[idx] = { ...records[idx], ...patch };
+  rewrite(attemptsFile(), records);
+  return true;
+}
+
+export function deleteAttempt(id: string): boolean {
+  const records = readAll(attemptsFile());
+  if (!records.some((r) => r['id'] === id)) return false;
+  rewrite(attemptsFile(), records.filter((r) => r['id'] !== id));
+  return true;
 }
 
 export function saveKbEntry(entry: KBEntry): void {

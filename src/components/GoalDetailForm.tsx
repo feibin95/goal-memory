@@ -56,10 +56,19 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
   const [parentDropdownOpen, setParentDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  // 依赖项编辑状态
+  const [depIds, setDepIds] = useState<string[]>(goal.dependencies ?? []);
+  const [depSearch, setDepSearch] = useState('');
+  const [depDropdownOpen, setDepDropdownOpen] = useState(false);
+  const depDropdownRef = useRef<HTMLDivElement>(null);
+
   useEffect(() => {
     setParentIds(goal.parent_ids ?? []);
     setParentSearch('');
     setParentDropdownOpen(false);
+    setDepIds(goal.dependencies ?? []);
+    setDepSearch('');
+    setDepDropdownOpen(false);
   }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 点击下拉框外部关闭
@@ -74,6 +83,18 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, [parentDropdownOpen]);
+
+  useEffect(() => {
+    if (!depDropdownOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (depDropdownRef.current && !depDropdownRef.current.contains(e.target as Node)) {
+        setDepDropdownOpen(false);
+        setDepSearch('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [depDropdownOpen]);
 
   const descendants = collectDescendants(goal.id, goals);
 
@@ -94,6 +115,21 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
 
   const handleRemoveParent = (id: string) => setParentIds(prev => prev.filter(p => p !== id));
 
+  const depCandidates = Object.values(goals).filter(g =>
+    g.id !== goal.id && !depIds.includes(g.id) && !descendants.has(g.id)
+  );
+  const filteredDepCandidates = depSearch.trim()
+    ? depCandidates.filter(g => g.title.toLowerCase().includes(depSearch.trim().toLowerCase()))
+    : depCandidates;
+
+  const handleAddDep = (id: string) => {
+    setDepIds(prev => [...prev, id]);
+    setDepSearch('');
+    setDepDropdownOpen(false);
+  };
+
+  const handleRemoveDep = (id: string) => setDepIds(prev => prev.filter(d => d !== id));
+
   const form = useForm<GoalDetailFormValues>({ resolver: zodResolver(goalDetailSchema), defaultValues: mapGoalToForm(goal) });
 
   useEffect(() => { form.reset(mapGoalToForm(goal)); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -104,7 +140,7 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
   const onSubmit = async (values: GoalDetailFormValues) => {
     setSaving(true);
     try {
-      await api.updateGoal(goal.id, { ...values, parent_ids: parentIds });
+      await api.updateGoal(goal.id, { ...values, parent_ids: parentIds, dependencies: depIds });
       form.reset(values);
       onSaved();
     }
@@ -166,17 +202,50 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
               </div>
             </div>
           </div>
-          {goal.dependencies?.length > 0 && (
-            <div className="form-section">
-              <h2>依赖项</h2>
-              <div className="chip-row">
-                {goal.dependencies.map((id) => {
+          <div className="form-section">
+            <h2>依赖项</h2>
+            {depIds.length > 0 && (
+              <div className="chip-row" style={{ marginBottom: 8 }}>
+                {depIds.map((id) => {
                   const dep = goals[id];
-                  return <span key={id} className="chip">{dep ? dep.title : id}{dep ? ` · ${statusLabels[dep.status]}` : ''}</span>;
+                  return (
+                    <span key={id} className="chip" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                      {dep ? dep.title : id}
+                      <button type="button" onClick={() => handleRemoveDep(id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: '0 2px', lineHeight: 1 }} title="移除">×</button>
+                    </span>
+                  );
                 })}
               </div>
+            )}
+            <div ref={depDropdownRef} style={{ position: 'relative', width: 'fit-content' }}>
+              <button type="button" onClick={() => { setDepDropdownOpen(o => !o); setDepSearch(''); }}>
+                关联依赖目标
+              </button>
+              {depDropdownOpen && (
+                <div className="parent-dropdown">
+                  <input
+                    autoFocus
+                    type="text"
+                    placeholder="搜索目标标题…"
+                    value={depSearch}
+                    onChange={(e) => setDepSearch(e.target.value)}
+                    className="parent-dropdown-search"
+                  />
+                  <ul className="parent-dropdown-list">
+                    {filteredDepCandidates.length === 0 ? (
+                      <li className="parent-dropdown-empty">无匹配目标</li>
+                    ) : (
+                      filteredDepCandidates.map(g => (
+                        <li key={g.id} className="parent-dropdown-item" onClick={() => handleAddDep(g.id)}>
+                          {goalLabel(g, goals)}
+                        </li>
+                      ))
+                    )}
+                  </ul>
+                </div>
+              )}
             </div>
-          )}
+          </div>
           <div className="form-section">
             <h2>父节点</h2>
             {parentIds.length > 0 && (
@@ -192,7 +261,7 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
                 })}
               </div>
             )}
-            <div ref={dropdownRef} style={{ position: 'relative' }}>
+            <div ref={dropdownRef} style={{ position: 'relative', width: 'fit-content' }}>
               <button type="button" onClick={() => { setParentDropdownOpen(o => !o); setParentSearch(''); }}>
                 关联父目标
               </button>
