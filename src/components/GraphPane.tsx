@@ -42,25 +42,6 @@ function buildElements(goals: Record<string, GoalSummary>) {
   return [...nodes, ...edges];
 }
 
-function reorderSameRankByDependency(cy: cytoscape.Core, goals: Record<string, GoalSummary>) {
-  const topo = topoSort(goals);
-  const topoIndex = new Map(topo.map((g, i) => [g.id, i]));
-  const Y_TOLERANCE = 5;
-  const groups: Array<{ y: number; nodes: cytoscape.NodeSingular[] }> = [];
-  cy.nodes().forEach(node => {
-    const y = node.position('y');
-    const group = groups.find(g => Math.abs(g.y - y) < Y_TOLERANCE);
-    if (group) group.nodes.push(node);
-    else groups.push({ y, nodes: [node] });
-  });
-  for (const { nodes } of groups) {
-    if (nodes.length <= 1) continue;
-    const xs = nodes.map(n => n.position('x')).sort((a, b) => a - b);
-    const sorted = [...nodes].sort((a, b) => (topoIndex.get(a.data('id')) ?? 0) - (topoIndex.get(b.data('id')) ?? 0));
-    sorted.forEach((node, i) => node.position('x', xs[i]));
-  }
-}
-
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getStyle(): any[] {
   return [
@@ -102,7 +83,6 @@ export function GraphPane({ goals, selectedId, onSelect, onClickBackground }: Pr
       elements.forEach((el) => { const ex = cy.getElementById(el.data.id); if (ex.length) ex.data(el.data); else cy.add(el); });
     });
     cy.layout({ name: 'dagre', eles: cy.nodes().add(cy.edges('[edgeType="parent"]')), rankDir: 'TB', nodeSep: 40, rankSep: 70, animate: false, fit: false, padding: 30 } as cytoscape.LayoutOptions).run();
-    reorderSameRankByDependency(cy, goals);
     cy.fit(undefined, 30);
   }, [goals]);
 
