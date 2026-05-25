@@ -1,22 +1,37 @@
 import { NextResponse } from 'next/server';
+import { z } from 'zod';
+import { getGoal, saveAttempt, loadAttempts, getAvailableAttempts } from '@/lib/core/store';
 import { AttemptUtils } from '@/lib/core/models';
-import { getGoal, saveAttempt } from '@/lib/core/store';
+import { createAttemptFiles } from '@/lib/core/attempt-files';
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const goalId = searchParams.get('goalId');
+  if (!goalId) return NextResponse.json({ error: 'goalId required' }, { status: 400 });
+  const available = searchParams.get('available') === 'true';
+  const attempts = available
+    ? getAvailableAttempts(goalId)
+    : loadAttempts().filter(a => a.goal_id === goalId);
+  return NextResponse.json(attempts);
+}
+
+const createAttemptSchema = z.object({
+  goalId:     z.string().min(1),
+  hypothesis: z.string().optional().default(''),
+});
 
 export async function POST(req: Request) {
-  const { goalId, hypothesis, action, result, gradient } = await req.json() as Record<string, unknown>;
-  if (!goalId || !hypothesis || !action || !result)
-    return NextResponse.json({ error: 'missing required fields' }, { status: 400 });
+  const parsed = createAttemptSchema.safeParse(await req.json());
+  if (!parsed.success)
+    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 });
 
-  const goal = getGoal(String(goalId));
+  const { goalId, hypothesis } = parsed.data;
+  const goal = getGoal(goalId);
   if (!goal) return NextResponse.json({ error: 'goal not found' }, { status: 404 });
 
-  const gradientValue = gradient != null ? Number(gradient) : null;
-  if (gradientValue != null && isNaN(gradientValue))
-    return NextResponse.json({ error: 'gradient must be a number' }, { status: 400 });
-
-  const attempt = AttemptUtils.create(
-    String(goalId), String(hypothesis), String(action), String(result), gradientValue,
-  );
+  const id = crypto.randomUUID().slice(0, 8);
+  const filesDir = createAttemptFiles(id, goal);
+  const attempt = AttemptUtils.createActive(goalId, filesDir, hypothesis, id);
   saveAttempt(attempt);
   return NextResponse.json(attempt, { status: 201 });
 }

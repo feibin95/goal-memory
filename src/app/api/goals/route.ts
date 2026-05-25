@@ -2,6 +2,15 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { GoalUtils, validateDdl } from '@/lib/core/models';
 import { saveGoal, loadGoals } from '@/lib/core/store';
+import { filterGoals } from '@/lib/core/scheduler';
+
+export async function GET(req: Request) {
+  const { searchParams } = new URL(req.url);
+  const parent_id = searchParams.get('parent_id') ?? undefined;
+  const actionable = searchParams.get('actionable') === 'true' ? true : undefined;
+  const goals = filterGoals({ parent_id, actionable });
+  return NextResponse.json(goals);
+}
 
 const createGoalSchema = z.object({
   title:            z.string().min(1),

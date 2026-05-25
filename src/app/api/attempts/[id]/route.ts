@@ -1,8 +1,10 @@
 import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { getAttemptById, updateAttempt, deleteAttempt } from '@/lib/core/store';
+import { formatAttemptFilesForContext } from '@/lib/core/attempt-files';
 
 const updateAttemptSchema = z.object({
+  status:     z.enum(['active', 'completed']).optional(),
   hypothesis: z.string().min(1).optional(),
   action:     z.string().min(1).optional(),
   result:     z.string().min(1).optional(),
@@ -10,6 +12,18 @@ const updateAttemptSchema = z.object({
 });
 
 type Ctx = { params: Promise<{ id: string }> };
+
+export async function GET(req: Request, { params }: Ctx) {
+  const { id } = await params;
+  const { searchParams } = new URL(req.url);
+  const attempt = getAttemptById(id);
+  if (!attempt) return NextResponse.json({ error: 'not found' }, { status: 404 });
+  if (searchParams.get('includeFiles') === 'true') {
+    const files = formatAttemptFilesForContext(id, attempt.files_dir);
+    return NextResponse.json({ ...attempt, files: files ?? null });
+  }
+  return NextResponse.json(attempt);
+}
 
 export async function PUT(req: Request, { params }: Ctx) {
   const { id } = await params;

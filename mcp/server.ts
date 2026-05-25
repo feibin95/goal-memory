@@ -1,8 +1,8 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { setBaseDir, loadGoals, getGoal, saveGoal, saveAttempt, saveKbEntry, getActiveAttempt, getAttemptById, updateAttempt } from "../src/lib/core/store.js";
-import { pickNext, candidateGoals } from "../src/lib/core/scheduler.js";
+import { setBaseDir, loadGoals, loadAttempts, getGoal, saveGoal, deleteGoal, saveAttempt, saveKbEntry, getAttemptById, updateAttempt, deleteAttempt, getAvailableAttempts } from "../src/lib/core/store.js";
+import { pickNext, candidateGoals, filterGoals } from "../src/lib/core/scheduler.js";
 import { buildContextPack } from "../src/lib/core/context.js";
 import { search } from "../src/lib/core/kb.js";
 import { GoalUtils, AttemptUtils, KBEntryUtils } from "../src/lib/core/models.js";
@@ -17,21 +17,6 @@ setSessionBaseDir(PROJECT_DIR);
 setAttemptFilesBaseDir(PROJECT_DIR);
 
 const server = new McpServer({ name: "goal-memory", version: "1.0.0" });
-
-server.registerTool(
-  "get_next_goal",
-  { description: "获取当前优先级最高的可执行目标（含评分说明）" },
-  async () => {
-    const result = pickNext();
-    if (!result) return { content: [{ type: "text", text: "No actionable goals found." }] };
-    return {
-      content: [{
-        type: "text",
-        text: JSON.stringify({ goal: result.goal, explanation: result.explanation }, null, 2),
-      }],
-    };
-  }
-);
 
 server.registerTool(
   "get_goal_context",
@@ -61,48 +46,36 @@ server.registerTool(
 
 server.registerTool(
   "list_goals",
-  { description: "列出所有目标，含状态、优先级和层级关系" },
-  async () => {
-    const goals = [...loadGoals().values()];
+  {
+    description: "列出目标列表。支持按父节点过滤（parent_id）和只列可执行目标（actionable=true，结果按 score 降序）。",
+    inputSchema: {
+      parent_id: z.string().optional().describe("仅列出该父节点的直接子目标（可选）"),
+      actionable: z.boolean().optional().describe("仅列出可执行目标（status=ready，叶节点，依赖已完成），按评分降序（可选）"),
+    },
+  },
+  async ({ parent_id, actionable }) => {
+    const goals = filterGoals({ parent_id, actionable });
+    if (!goals.length) return { content: [{ type: "text", text: "No goals found." }] };
     return { content: [{ type: "text", text: JSON.stringify(goals, null, 2) }] };
   }
 );
 
-server.registerTool(
-  "list_actionable_goals",
-  { description: "列出当前可执行的叶子目标（status=ready，所有依赖已完成）" },
-  async () => {
-    const goals = loadGoals();
-    const candidates = candidateGoals(goals);
-    if (!candidates.length) return { content: [{ type: "text", text: "No actionable goals." }] };
-    return { content: [{ type: "text", text: JSON.stringify(candidates, null, 2) }] };
-  }
-);
-
 
 server.registerTool(
-  "record_attempt",
+  "delete_goal",
   {
-    description: "记录一次工作尝试（假设-行动-结果循环）",
-    inputSchema: {
-      goalId: z.string().describe("目标 ID"),
-      hypothesis: z.string().describe("本次尝试的假设"),
-      action: z.string().describe("实际执行的行动"),
-      result: z.string().describe("观察到的结果"),
-      gradient: z.number().nullable().optional().describe("梯度/进展评分（可选）"),
-    },
+    description: "删除目标（级联删除孤立子节点，解除多父节点的父子关系）",
+    inputSchema: { goal_id: z.string().describe("要删除的目标 ID") },
   },
-  async ({ goalId, hypothesis, action, result, gradient }) => {
-    const goal = getGoal(goalId);
-    if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
-    const attempt = AttemptUtils.create(goalId, hypothesis, action, result, gradient ?? null);
-    saveAttempt(attempt);
-    return { content: [{ type: "text", text: `Attempt [${attempt.id}] recorded for goal "${goal.title}".` }] };
+  async ({ goal_id }) => {
+    const deleted = deleteGoal(goal_id);
+    if (!deleted) return { content: [{ type: "text", text: `Goal not found: ${goal_id}` }] };
+    return { content: [{ type: "text", text: `Goal [${goal_id}] deleted.` }] };
   }
 );
 
 server.registerTool(
-  "start_attempt",
+  "create_attempt",
   {
     description: "为当前会话创建一个执行 Attempt，自动生成 task_plan.md / findings.md / progress.md 三个规划文件，并将 session 绑定到此 Attempt。若传入 existingAttemptId 则直接绑定已有 Attempt，不新建文件。",
     inputSchema: {
@@ -143,40 +116,77 @@ server.registerTool(
 );
 
 server.registerTool(
-  "complete_attempt",
+  "update_attempt",
   {
-    description: "完成一个执行 Attempt，记录实际行动、结果和梯度评分",
+    description: "更新 Attempt 字段。将 status 设为 completed 并填写 action/result 即可完成一个 Attempt。",
     inputSchema: {
       attemptId: z.string().describe("Attempt ID"),
-      action: z.string().describe("实际执行了什么"),
-      result: z.string().describe("观察到的结果"),
+      status: z.enum(["active", "completed"]).optional().describe("新状态（设为 completed 即完成）"),
+      action: z.string().optional().describe("实际执行了什么"),
+      result: z.string().optional().describe("观察到的结果"),
       gradient: z.number().nullable().optional().describe("进展评分（-1 到 +1，可选）"),
     },
   },
-  async ({ attemptId, action, result, gradient }) => {
-    const ok = updateAttempt(attemptId, {
-      status: "completed",
-      action,
-      result,
-      ...(gradient != null ? { gradient } : {}),
-    });
+  async ({ attemptId, status, action, result, gradient }) => {
+    const patch: Record<string, unknown> = {};
+    if (status !== undefined) patch.status = status;
+    if (action !== undefined) patch.action = action;
+    if (result !== undefined) patch.result = result;
+    if (gradient !== undefined) patch.gradient = gradient;
+    const ok = updateAttempt(attemptId, patch);
     if (!ok) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
-    return { content: [{ type: "text", text: `Attempt [${attemptId}] marked as completed.` }] };
+    return { content: [{ type: "text", text: `Attempt [${attemptId}] updated.` }] };
   }
 );
 
 server.registerTool(
-  "get_attempt_context",
+  "list_attempts",
   {
-    description: "获取 Attempt 的三个规划文件内容（task_plan.md / findings.md / progress.md）",
+    description: "列出某目标下的 Attempt 列表。available=true 时只返回活跃且未被任何 session 持有的 Attempt（可续接）。",
+    inputSchema: {
+      goalId: z.string().describe("目标 ID"),
+      available: z.boolean().optional().describe("仅返回可续接的 Attempt（active 且无 session 持有）"),
+    },
+  },
+  async ({ goalId, available }) => {
+    const attempts = available
+      ? getAvailableAttempts(goalId)
+      : loadAttempts().filter(a => a.goal_id === goalId);
+    if (!attempts.length) return { content: [{ type: "text", text: "No attempts found." }] };
+    return { content: [{ type: "text", text: JSON.stringify(attempts, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "get_attempt",
+  {
+    description: "获取 Attempt 详情。include_files=true 时附带三个规划文件内容（task_plan.md / findings.md / progress.md）。",
+    inputSchema: {
+      attemptId: z.string().describe("Attempt ID"),
+      include_files: z.boolean().optional().describe("是否附带规划文件内容"),
+    },
+  },
+  async ({ attemptId, include_files }) => {
+    const attempt = getAttemptById(attemptId);
+    if (!attempt) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
+    if (include_files) {
+      const files = formatAttemptFilesForContext(attemptId, attempt.files_dir);
+      return { content: [{ type: "text", text: JSON.stringify({ ...attempt, files: files ?? null }, null, 2) }] };
+    }
+    return { content: [{ type: "text", text: JSON.stringify(attempt, null, 2) }] };
+  }
+);
+
+server.registerTool(
+  "delete_attempt",
+  {
+    description: "删除一个 Attempt",
     inputSchema: { attemptId: z.string().describe("Attempt ID") },
   },
   async ({ attemptId }) => {
-    const attempt = getAttemptById(attemptId);
-    if (!attempt) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
-    const formatted = formatAttemptFilesForContext(attemptId, attempt.files_dir);
-    if (!formatted) return { content: [{ type: "text", text: `No planning files found for attempt ${attemptId}.` }] };
-    return { content: [{ type: "text", text: formatted }] };
+    const ok = deleteAttempt(attemptId);
+    if (!ok) return { content: [{ type: "text", text: `Attempt not found: ${attemptId}` }] };
+    return { content: [{ type: "text", text: `Attempt [${attemptId}] deleted.` }] };
   }
 );
 
@@ -188,7 +198,7 @@ server.registerTool(
       title: z.string().describe("目标标题"),
       background: z.string().describe("为什么要做这个目标（背景/动机）"),
       parent_ids: z.array(z.string()).optional().describe("父目标 ID 列表（可选）"),
-      dependencies: z.array(z.string()).optional().describe("依赖的目标 ID 列表（可选）"),
+      dependencies: z.array(z.string()).optional().describe("本目标的阻塞项（blocked by）：执行前必须完成的目标 ID 列表（可选）"),
       cost: z.number().int().min(1).max(10).optional().describe("执行成本 1-10（默认 3）"),
       ddl: z.string().nullable().optional().describe("截止日期 YYYY-MM-DD（可选）"),
       success_criteria: z.string().optional().describe("成功标准（可选）"),
@@ -222,13 +232,13 @@ server.registerTool(
       success_criteria: z.string().optional(),
       note: z.string().optional().describe("追加一条备注"),
       clearNotes: z.boolean().optional().describe("清空所有备注"),
-      addDependencies: z.array(z.string()).optional().describe("追加依赖目标 ID"),
-      removeDependencies: z.array(z.string()).optional().describe("移除依赖目标 ID"),
+      addBlockedBy: z.array(z.string()).optional().describe("追加阻塞项：本目标执行前必须完成的目标 ID 列表"),
+      removeBlockedBy: z.array(z.string()).optional().describe("移除阻塞项：解除对指定目标 ID 的依赖"),
       addParentIds: z.array(z.string()).optional().describe("追加父目标 ID"),
       removeParentIds: z.array(z.string()).optional().describe("移除父目标 ID"),
     },
   },
-  async ({ goalId, title, background, status, cost, ddl, success_criteria, note, clearNotes, addDependencies, removeDependencies, addParentIds, removeParentIds }) => {
+  async ({ goalId, title, background, status, cost, ddl, success_criteria, note, clearNotes, addBlockedBy, removeBlockedBy, addParentIds, removeParentIds }) => {
     const goal = getGoal(goalId);
     if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
     if (title !== undefined) goal.title = title;
@@ -239,10 +249,10 @@ server.registerTool(
     if (success_criteria !== undefined) goal.success_criteria = success_criteria;
     if (clearNotes) goal.notes = [];
     if (note) goal.notes.push(note);
-    if (addDependencies?.length)
-      goal.dependencies = [...new Set([...goal.dependencies, ...addDependencies])];
-    if (removeDependencies?.length)
-      goal.dependencies = goal.dependencies.filter(id => !removeDependencies.includes(id));
+    if (addBlockedBy?.length)
+      goal.dependencies = [...new Set([...goal.dependencies, ...addBlockedBy])];
+    if (removeBlockedBy?.length)
+      goal.dependencies = goal.dependencies.filter(id => !removeBlockedBy.includes(id));
     if (addParentIds?.length)
       goal.parent_ids = [...new Set([...goal.parent_ids, ...addParentIds])];
     if (removeParentIds?.length)
@@ -286,17 +296,24 @@ server.registerTool(
 server.registerTool(
   "bind_session",
   {
-    description: "将当前会话与指定目标绑定，后续上下文注入将专注该目标",
+    description: "将当前会话与目标绑定。可同时传 attempt_id 绑定到具体 Attempt。",
     inputSchema: {
       sessionKey: z.string().describe("会话标识（transcript 文件名，不含 .jsonl）"),
-      goalId: z.string().describe("要绑定的目标 ID"),
+      goalId: z.string().describe("要绑定的目标 ID，传 NONE 表示临时会话"),
+      attempt_id: z.string().optional().describe("同时绑定到指定 Attempt（可选）"),
     },
   },
-  async ({ sessionKey, goalId }) => {
+  async ({ sessionKey, goalId, attempt_id }) => {
     if (goalId !== "NONE") {
       const goal = getGoal(goalId);
       if (!goal) return { content: [{ type: "text", text: `Goal not found: ${goalId}` }] };
       saveSession(sessionKey, goalId);
+      if (attempt_id) {
+        const attempt = getAttemptById(attempt_id);
+        if (!attempt) return { content: [{ type: "text", text: `Attempt not found: ${attempt_id}` }] };
+        bindAttempt(sessionKey, attempt_id);
+        return { content: [{ type: "text", text: `Session "${sessionKey}" bound to goal [${goalId}] "${goal.title}" and attempt [${attempt_id}].` }] };
+      }
       return { content: [{ type: "text", text: `Session "${sessionKey}" bound to goal [${goalId}] "${goal.title}".` }] };
     }
     saveSession(sessionKey, "NONE");

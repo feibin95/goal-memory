@@ -1,7 +1,7 @@
 import { Command } from 'commander';
 import { GoalUtils, AttemptUtils, validateDdl } from '../src/lib/core/models';
-import { saveGoal, loadGoals, getGoal, saveAttempt, getActiveAttempt, getAvailableAttempts, getAttemptById, updateAttempt } from '../src/lib/core/store';
-import { pickNext } from '../src/lib/core/scheduler';
+import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt } from '../src/lib/core/store';
+import { filterGoals, pickNext, candidateGoals } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
 import { getSessionGoal, saveSession, getSession, bindAttempt } from '../src/lib/core/session-store';
@@ -70,28 +70,80 @@ program.command('update <goalId>').description('Update goal fields')
     console.log('Goal [' + goal.id + '] updated. dependencies: [' + goal.dependencies.join(', ') + ']');
   });
 
-program.command('list').description('List all goals')
+program.command('list').description('List goals')
   .option('--json', 'Output as JSON array')
+  .option('--parent <goalId>', 'Filter by parent goal ID')
+  .option('--actionable', 'Only show actionable goals, sorted by score')
   .action((opts) => {
-    const goals = loadGoals();
+    const goals = filterGoals({ parent_id: opts.parent, actionable: opts.actionable });
     if (opts.json) {
-      console.log(JSON.stringify([...goals.values()].map(g => ({ id: g.id, status: g.status, title: g.title, ddl: g.ddl ?? null }))));
+      console.log(JSON.stringify(goals.map(g => ({ id: g.id, status: g.status, title: g.title, ddl: g.ddl ?? null, ...((g as { score?: number }).score !== undefined ? { score: (g as { score?: number }).score } : {}) }))));
       return;
     }
-    if (goals.size === 0) { console.log('No goals.'); return; }
-    console.log('ID         STATUS       DDL         TITLE');
-    console.log('-'.repeat(70));
-    for (const g of [...goals.values()].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
-      console.log(g.id.padEnd(10) + ' ' + g.status.padEnd(12) + ' ' + (g.ddl ?? '').padEnd(11) + (g.parent_ids?.length ? '  ' : '') + g.title);
+    if (!goals.length) { console.log('No goals.'); return; }
+    const hasScore = goals.some(g => (g as { score?: number }).score !== undefined);
+    if (hasScore) {
+      console.log('ID         STATUS       SCORE    DDL         TITLE');
+      console.log('-'.repeat(75));
+      for (const g of goals) {
+        const score = String(((g as { score?: number }).score ?? 0).toFixed(2)).padEnd(8);
+        console.log(g.id.padEnd(10) + ' ' + g.status.padEnd(12) + ' ' + score + ' ' + (g.ddl ?? '').padEnd(11) + g.title);
+      }
+    } else {
+      console.log('ID         STATUS       DDL         TITLE');
+      console.log('-'.repeat(70));
+      for (const g of [...goals].sort((a, b) => a.created_at.localeCompare(b.created_at))) {
+        console.log(g.id.padEnd(10) + ' ' + g.status.padEnd(12) + ' ' + (g.ddl ?? '').padEnd(11) + (g.parent_ids?.length ? '  ' : '') + g.title);
+      }
     }
   });
 
-program.command('next').description('Pick next actionable goal')
-  .option('--explain').action((opts) => {
-    const result = pickNext();
-    if (!result) { console.log('No actionable goals found.'); return; }
-    console.log('Next goal: [' + result.goal.id + '] ' + result.goal.title);
-    if (opts.explain) for (const [k, v] of Object.entries(result.explanation)) console.log('  ' + k + ': ' + v);
+program.command('state').description('Show global state snapshot')
+  .option('--json', 'Output as JSON')
+  .action((opts) => {
+    const goals = loadGoals();
+    const next = pickNext();
+    const inProgress = [...goals.values()].filter(g => g.status === 'in_progress');
+    const actionable = candidateGoals(goals);
+    if (opts.json) {
+      console.log(JSON.stringify({
+        next: next ? { id: next.goal.id, title: next.goal.title, score: next.explanation } : null,
+        in_progress: inProgress.map(g => ({ id: g.id, title: g.title })),
+        actionable_count: actionable.length,
+        total: goals.size,
+      }, null, 2));
+      return;
+    }
+    console.log('Total: ' + goals.size + '  Actionable: ' + actionable.length + '  In-progress: ' + inProgress.length);
+    if (next) console.log('Next:  [' + next.goal.id + '] ' + next.goal.title + ' (score=' + next.explanation.total + ')');
+    if (inProgress.length) {
+      console.log('In-progress:');
+      for (const g of inProgress) console.log('  [' + g.id + '] ' + g.title);
+    }
+  });
+
+program.command('show <goalId>').description('Show full detail of a goal')
+  .option('--json', 'Output as raw JSON')
+  .action((goalId, opts) => {
+    const goal = requireGoal(goalId);
+    if (opts.json) { console.log(JSON.stringify(goal, null, 2)); return; }
+    console.log('ID:               ' + goal.id);
+    console.log('Title:            ' + goal.title);
+    console.log('Status:           ' + goal.status);
+    console.log('Cost:             ' + goal.cost);
+    console.log('DDL:              ' + (goal.ddl ?? '(none)'));
+    console.log('Background:       ' + goal.background);
+    console.log('Success Criteria: ' + (goal.success_criteria || '(none)'));
+    console.log('Parent IDs:       ' + (goal.parent_ids.join(', ') || '(none)'));
+    console.log('Dependencies:     ' + (goal.dependencies.join(', ') || '(none)'));
+    if (goal.notes.length) console.log('Notes:\n' + goal.notes.map((n: string) => '  - ' + n).join('\n'));
+  });
+
+program.command('delete <goalId>').description('Delete a goal (cascades to orphaned children)')
+  .action((goalId) => {
+    const deleted = deleteGoal(goalId);
+    if (!deleted) { console.error('Error: goal ' + goalId + ' not found.'); process.exit(1); }
+    console.log('Deleted ' + goalId);
   });
 
 program.command('context <goalId>').description('Generate context pack')
@@ -99,17 +151,6 @@ program.command('context <goalId>').description('Generate context pack')
     const pack = buildContextPack(goalId);
     if (!pack) { console.error('Error: goal not found.'); process.exit(1); }
     console.log(pack);
-  });
-
-program.command('record-attempt <goalId>').description('Record a completed attempt')
-  .requiredOption('--hypothesis <text>').requiredOption('--action <text>')
-  .requiredOption('--result <text>').option('--gradient <number>')
-  .action((goalId, opts) => {
-    const goal = requireGoal(goalId);
-    const gradient = opts.gradient != null ? parseFloat(opts.gradient) : null;
-    const attempt = AttemptUtils.create(goal.id, opts.hypothesis, opts.action, opts.result, gradient);
-    saveAttempt(attempt);
-    console.log('Attempt [' + attempt.id + '] recorded.');
   });
 
 const attempt = program.command('attempt').description('Manage execution attempts');
@@ -125,31 +166,50 @@ attempt.command('create <goalId>').description('Create an active attempt with pl
     console.log(JSON.stringify({ attemptId: id, filesDir }));
   });
 
-attempt.command('complete <attemptId>').description('Mark an attempt as completed')
-  .requiredOption('--action <text>').requiredOption('--result <text>').option('--gradient <number>')
+attempt.command('update <attemptId>').description('Update attempt fields (set --status completed to finish)')
+  .option('--status <status>', 'New status: active | completed')
+  .option('--action <text>').option('--result <text>').option('--gradient <number>')
   .action((attemptId, opts) => {
-    const gradient = opts.gradient != null ? parseFloat(opts.gradient) : null;
-    const ok = updateAttempt(attemptId, { status: 'completed', action: opts.action, result: opts.result, ...(gradient !== null ? { gradient } : {}) });
+    const patch: Record<string, unknown> = {};
+    if (opts.status !== undefined) patch.status = opts.status;
+    if (opts.action !== undefined) patch.action = opts.action;
+    if (opts.result !== undefined) patch.result = opts.result;
+    if (opts.gradient !== undefined) patch.gradient = parseFloat(opts.gradient);
+    const ok = updateAttempt(attemptId, patch);
     if (!ok) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
-    console.log('Attempt [' + attemptId + '] completed.');
+    console.log('Attempt [' + attemptId + '] updated.');
   });
 
-attempt.command('active <goalId>').description('Get the active attempt for a goal (JSON)')
-  .action((goalId) => {
-    const a = getActiveAttempt(goalId);
-    console.log(a ? JSON.stringify(a) : '');
+attempt.command('list <goalId>').description('List attempts for a goal')
+  .option('--available', 'Only show active attempts not owned by any live session')
+  .option('--json', 'Output as JSON array')
+  .action((goalId, opts) => {
+    const attempts = opts.available ? getAvailableAttempts(goalId) : loadAttempts().filter(a => a.goal_id === goalId);
+    if (opts.json) { console.log(JSON.stringify(attempts)); return; }
+    if (!attempts.length) { console.log('No attempts.'); return; }
+    console.log('ID         STATUS       CREATED              HYPOTHESIS');
+    console.log('-'.repeat(75));
+    for (const a of attempts)
+      console.log(a.id.padEnd(10) + ' ' + a.status.padEnd(12) + ' ' + a.created_at.slice(0, 19) + '  ' + (a.hypothesis ?? '').slice(0, 40));
   });
 
-attempt.command('available <goalId>').description('List active attempts not owned by any live session')
-  .action((goalId) => {
-    console.log(JSON.stringify(getAvailableAttempts(goalId)));
-  });
-
-attempt.command('files <attemptId>').description('Show planning file content for an attempt')
-  .action((attemptId) => {
+attempt.command('get <attemptId>').description('Show attempt detail')
+  .option('--files', 'Include planning file contents')
+  .action((attemptId, opts) => {
     const a = getAttemptById(attemptId);
     if (!a) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
-    console.log(formatAttemptFilesForContext(attemptId, a.files_dir));
+    console.log(JSON.stringify(a, null, 2));
+    if (opts.files) {
+      const files = formatAttemptFilesForContext(attemptId, a.files_dir);
+      if (files) console.log('\n' + files);
+    }
+  });
+
+attempt.command('delete <attemptId>').description('Delete an attempt')
+  .action((attemptId) => {
+    const ok = deleteAttempt(attemptId);
+    if (!ok) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
+    console.log('Deleted ' + attemptId);
   });
 
 const kb = program.command('kb');

@@ -1,6 +1,11 @@
 import type { Goal, Attempt } from '@/types';
 import { loadGoals, loadAttempts } from './store';
 
+export interface GoalListOptions {
+  parent_id?: string;
+  actionable?: boolean;
+}
+
 export function isLeaf(goal: Goal, goals: Map<string, Goal>): boolean {
   for (const g of goals.values()) { if (g.parent_ids.includes(goal.id)) return false; }
   return true;
@@ -98,4 +103,20 @@ export function pickNext(): PickNextResult | null {
     if (score > bestScore) { bestScore = score; best = g; bestExplanation = explanation; }
   }
   return { goal: best, explanation: bestExplanation };
+}
+
+export function filterGoals(options: GoalListOptions = {}): (Goal & { score?: number })[] {
+  const goals = loadGoals();
+  let result = [...goals.values()];
+  if (options.parent_id) {
+    result = result.filter(g => g.parent_ids.includes(options.parent_id!));
+  }
+  if (options.actionable) {
+    result = result.filter(g => g.status === 'ready' && isLeaf(g, goals) && depsDone(g, goals));
+    const attempts = loadAttempts();
+    return result
+      .map(g => { const [score] = scoreGoal(g, goals, attempts); return { ...g, score }; })
+      .sort((a, b) => b.score! - a.score!);
+  }
+  return result;
 }
