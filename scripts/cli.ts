@@ -4,7 +4,7 @@ import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, ge
 import { filterGoals, pickNext, candidateGoals } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
-import { getSessionGoal, saveSession, getSession, bindAttempt } from '../src/lib/core/session-store';
+import { getSessionGoal, saveSession, getSession, bindAttempt, releaseAttempt } from '../src/lib/core/session-store';
 import { createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from '../src/lib/core/attempt-files';
 
 function nowIso() { return new Date().toISOString(); }
@@ -241,6 +241,11 @@ session.command('bind-attempt <sessionKey> <attemptId>').description('Bind a ses
     if (!a) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
     bindAttempt(sessionKey, attemptId);
     console.log('Session ' + sessionKey + ' bound to attempt [' + attemptId + '].');
+  });
+session.command('release-attempt <sessionKey>').description('Clear attempt binding for a session (on session end)')
+  .action((sessionKey) => {
+    releaseAttempt(sessionKey);
+    console.log('Session ' + sessionKey + ': attempt binding released.');
   });
 
 program.parseAsync(process.argv).catch((err: Error) => { console.error(err); process.exit(1); });

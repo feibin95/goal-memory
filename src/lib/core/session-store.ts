@@ -71,3 +71,9 @@ export function loadSessions(): SessionRecord[] {
 export function deleteSessionsByGoalId(goalId: string): void {
   getDb().prepare('DELETE FROM sessions WHERE goal_id = ?').run(Number(goalId));
 }
+
+export function releaseAttempt(sessionKey: string): void {
+  getDb()
+    .prepare('UPDATE sessions SET attempt_id = NULL WHERE session_key = ?')
+    .run(sessionKey);
+}
