@@ -10,6 +10,18 @@ function now(): string {
   return new Date().toISOString();
 }
 
+function pad(n: number): string { return String(n).padStart(2, '0'); }
+
+export function formatLocalTime(isoUtc: string): string {
+  const d = new Date(isoUtc);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
+}
+
+export function formatLocalDate(isoUtc: string): string {
+  const d = new Date(isoUtc);
+  return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}`;
+}
+
 export const GoalUtils = {
   create(
     title: string,

@@ -9,7 +9,8 @@ export function setAttemptFilesBaseDir(dir: string): void {
 }
 
 export function buildAttemptDirName(goalTitle: string, seq: number): string {
-  const date = new Date().toISOString().slice(2, 10).replace(/-/g, ''); // "YYMMDD"
+  const _d = new Date(); const _p = (n: number) => String(n).padStart(2, '0');
+  const date = `${String(_d.getFullYear()).slice(2)}${_p(_d.getMonth()+1)}${_p(_d.getDate())}`; // "YYMMDD" local
   const safeTitle = goalTitle.replace(/[/\\:*?"<>|]/g, '-');
   return `${safeTitle}-${date}-${seq}`;
 }
@@ -22,7 +23,8 @@ export function createAttemptFiles(dirName: string, goal: Goal): string {
   const dir = getAttemptFilesDir(dirName);
   fs.mkdirSync(dir, { recursive: true });
 
-  const today = new Date().toISOString().slice(0, 10);
+  const _now = new Date(); const _pp = (n: number) => String(n).padStart(2, '0');
+  const today = `${_now.getFullYear()}-${_pp(_now.getMonth()+1)}-${_pp(_now.getDate())}`;
 
   const taskPlan = [
     `# Task Plan: ${goal.title}`,

@@ -1,5 +1,5 @@
 import { Command } from 'commander';
-import { GoalUtils, AttemptUtils, validateDdl } from '../src/lib/core/models';
+import { GoalUtils, AttemptUtils, validateDdl, formatLocalTime } from '../src/lib/core/models';
 import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt, nextAttemptSeq } from '../src/lib/core/store';
 import { filterGoals, pickNext, candidateGoals } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
@@ -185,7 +185,7 @@ attempt.command('list <goalId>').description('List attempts for a goal')
     console.log('ID         STATUS       CREATED              HYPOTHESIS');
     console.log('-'.repeat(75));
     for (const a of attempts)
-      console.log(a.id.padEnd(10) + ' ' + a.status.padEnd(12) + ' ' + a.created_at.slice(0, 19) + '  ' + (a.hypothesis ?? '').slice(0, 40));
+      console.log(a.id.padEnd(10) + ' ' + a.status.padEnd(12) + ' ' + formatLocalTime(a.created_at).slice(0, 16) + '  ' + (a.hypothesis ?? '').slice(0, 40));
   });
 
 attempt.command('available <goalId>').description('List resumable active attempts as JSON')

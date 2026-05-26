@@ -110,7 +110,7 @@ export function AttemptsTable({ goalId, attempts, onAttemptAdded }: Props) {
                     {attempt.gradient != null && <span className="pill">梯度 {attempt.gradient}</span>}
                   </div>
                   <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-                    <span className="attempt-date">{attempt.created_at.slice(0, 10)}</span>
+                    <span className="attempt-date">{(() => { const d = new Date(attempt.created_at); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`; })()}</span>
                     <button type="button" onClick={() => setEditingId(attempt.id)}>编辑</button>
                     <button type="button" className="danger" disabled={deleting === attempt.id} onClick={() => handleDelete(attempt.id)}>
                       {deleting === attempt.id ? '删除中…' : '删除'}
