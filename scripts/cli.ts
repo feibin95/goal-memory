@@ -157,6 +157,7 @@ attempt.command('create <goalId>').description('Create an active attempt with pl
     const dirName = buildAttemptDirName(goal.title, seq);
     const filesDir = createAttemptFiles(dirName, goal);
     const a = saveAttempt(AttemptUtils.createActive(goal.id, filesDir, opts.hypothesis));
+    if (goal.status === 'ready') { goal.status = 'in_progress'; saveGoal(goal); }
     console.log(JSON.stringify({ attemptId: a.id, filesDir }));
   });
 
