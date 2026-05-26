@@ -176,7 +176,7 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
     prevGoalsRef.current = goals;
 
     if (goalsChanged) {
-      // Structural change: rebuild all elements and run full layout
+      // Rebuild elements only — layout runs below on visible nodes
       const elements = buildAllElements(goals);
       cy.batch(() => {
         const newIds = new Set(elements.map(el => el.data.id));
@@ -186,15 +186,22 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
           if (ex.length) ex.data(el.data); else cy.add(el);
         });
       });
-      cy.layout({ name: 'dagre', eles: cy.nodes().add(cy.edges('[edgeType="parent"]')), rankDir: 'TB', nodeSep: 40, rankSep: 70, animate: false, fit: false, padding: 30 } as cytoscape.LayoutOptions).run();
-      cy.fit(undefined, 30);
-      // layoutstop will fire → updateCues called automatically
     }
 
-    // Always apply collapse state via hide/show (positions never touched)
+    // Apply collapse via hide/show, then layout only visible nodes
     applyCollapseState(cy, goals, collapsedIds);
-    // hide/show doesn't fire layoutstop, so update cues manually
-    updateCues();
+    const layout = cy.layout({
+      name: 'dagre',
+      eles: cy.nodes(':visible').add(cy.edges(':visible').filter('[edgeType="parent"]')),
+      rankDir: 'TB', nodeSep: 40, rankSep: 70,
+      animate: !goalsChanged,
+      animationDuration: 250,
+      fit: false,
+      padding: 30,
+    } as cytoscape.LayoutOptions);
+    layout.on('layoutstop', () => cy.fit(undefined, 30));
+    layout.run();
+    // cy.on('layoutstop', updateCues) already registered — no manual call needed
   }, [goals, collapsedIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
