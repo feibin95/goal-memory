@@ -2,17 +2,19 @@
 'use strict';
 
 const path = require('path');
-const { execSync } = require('child_process');
+const { execFileSync } = require('child_process');
 
 // ─── CLI 工具 ──────────────────────────────────────────────────────────────────
 
-const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT || path.resolve(__dirname, '..');
-const PROJECT_ROOT = path.resolve(PLUGIN_ROOT, '..');
+const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT;
+const PROJECT_ROOT = PLUGIN_ROOT
+  ? path.resolve(PLUGIN_ROOT, '..')   // CC：.claudecode/../ = 项目根
+  : path.resolve(__dirname, '..');    // Codex：plugin/../ = 项目根
 const TSX = path.join(PROJECT_ROOT, 'node_modules/.bin/tsx');
 const CLI = path.join(PROJECT_ROOT, 'scripts/cli.ts');
 
 function cli(args) {
-  return execSync(`"${TSX}" "${CLI}" ${args}`, { cwd: PROJECT_ROOT }).toString().trim();
+  return execFileSync(TSX, [CLI, ...args], { cwd: PROJECT_ROOT }).toString().trim();
 }
 
 function cliJson(args, fallback) {
@@ -26,23 +28,23 @@ function cliText(args) {
 // ─── 数据获取 ──────────────────────────────────────────────────────────────────
 
 function fetchSession(sessionKey) {
-  return cliJson(`session get-full ${sessionKey}`, {});
+  return cliJson(['session', 'get-full', sessionKey], {});
 }
 
 function fetchGoals() {
-  return cliJson('list --json', null);
+  return cliJson(['list', '--json'], null);
 }
 
 function fetchContext(goalId) {
-  return cliText(`context ${goalId}`);
+  return cliText(['context', goalId]);
 }
 
 function fetchAvailableAttempts(goalId) {
-  return cliJson(`attempt available ${goalId}`, []);
+  return cliJson(['attempt', 'available', goalId], []);
 }
 
 function fetchAttemptFiles(attemptId) {
-  return cliText(`attempt files ${attemptId}`) || '';
+  return cliText(['attempt', 'files', attemptId]) || '';
 }
 
 // ─── 阶段渲染 ──────────────────────────────────────────────────────────────────
@@ -145,6 +147,7 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
       '**[3] 执行**',
       '  按 task_plan.md 推进，每个阶段完成后更新 progress.md（Session Log / Test Results / Error Log）。',
       '  遇到新情况随时修订 task_plan.md；同一错误绝不重复，每次必须变换方案。',
+      '  期间产出的任何结论文件（分析报告、设计文档、调研结论等）都必须写入当前 attempt 目录。',
       '',
       '## Attempt 完成后',
       `  complete_attempt(attemptId="${attemptId}")`,

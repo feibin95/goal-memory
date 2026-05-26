@@ -98,6 +98,30 @@ node dist/cli.js --help
 
 ---
 
+## Agent Hooks
+
+GoalMem can inject the active goal context into coding-agent sessions.
+
+- Claude Code uses `.claudecode/hooks/hooks.json`.
+- Codex uses `.codex/hooks.json`.
+- Both paths reuse `plugin/build-state-context.cjs`, and hooks read GoalMem state only through `scripts/cli.ts`.
+
+Codex hooks are wired for `SessionStart`, `UserPromptSubmit`, and `PostToolUse`. The Codex session key comes from the hook payload `session_id`; bind it with the MCP tool:
+
+```text
+bind_session(sessionKey="<codex session_id>", goalId="<goal id>")
+create_attempt(goalId="<goal id>", sessionKey="<codex session_id>")
+```
+
+For hook diagnostics, the CLI also exposes:
+
+```bash
+npm run goalmem -- attempt available <GOAL_ID>
+npm run goalmem -- attempt files <ATTEMPT_ID>
+```
+
+---
+
 ## Copy-Paste Demo Flow (TypeScript)
 
 ```bash

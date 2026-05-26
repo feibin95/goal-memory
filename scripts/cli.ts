@@ -187,6 +187,19 @@ attempt.command('list <goalId>').description('List attempts for a goal')
       console.log(a.id.padEnd(10) + ' ' + a.status.padEnd(12) + ' ' + a.created_at.slice(0, 19) + '  ' + (a.hypothesis ?? '').slice(0, 40));
   });
 
+attempt.command('available <goalId>').description('List resumable active attempts as JSON')
+  .action((goalId) => {
+    console.log(JSON.stringify(getAvailableAttempts(goalId)));
+  });
+
+attempt.command('files <attemptId>').description('Print planning files for hook context')
+  .action((attemptId) => {
+    const a = getAttemptById(attemptId);
+    if (!a) { console.error('Error: attempt ' + attemptId + ' not found.'); process.exit(1); }
+    const files = formatAttemptFilesForContext(attemptId, a.files_dir);
+    if (files) console.log(files);
+  });
+
 attempt.command('get <attemptId>').description('Show attempt detail')
   .option('--files', 'Include planning file contents')
   .action((attemptId, opts) => {
