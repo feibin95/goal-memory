@@ -19,7 +19,27 @@ export default function App() {
   const [newRootForm, setNewRootForm] = useState<NewRootForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   const [newRootError, setNewRootError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
+    try {
+      const saved = localStorage.getItem('goal-collapsed-ids');
+      return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
+    } catch {
+      return new Set<string>();
+    }
+  });
   const formDirtyRef = useRef(false);
+
+  useEffect(() => {
+    localStorage.setItem('goal-collapsed-ids', JSON.stringify([...collapsedIds]));
+  }, [collapsedIds]);
+
+  const handleToggleCollapse = (id: string) => {
+    setCollapsedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
 
   const loadSelectedGoal = async (id: string) => {
     try {
@@ -96,7 +116,7 @@ export default function App() {
         </div>
       </header>
       <main className="workspace">
-        <GraphPane goals={state.goals} selectedId={selectedId} onSelect={handleSelectGoal} onClickBackground={closeDetail} />
+        <GraphPane goals={state.goals} selectedId={selectedId} collapsedIds={collapsedIds} onSelect={handleSelectGoal} onToggleCollapse={handleToggleCollapse} onClickBackground={closeDetail} />
         {selectedGoal && (
           <DetailPane goal={selectedGoal} goals={state.goals} onRefresh={loadState}
             onClose={closeDetail}
