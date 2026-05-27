@@ -1,9 +1,0 @@
-{
-  "mcpServers": {
-    "goal-memory": {
-      "command": "npx",
-      "args": ["--yes", "tsx", "${CLAUDE_PLUGIN_ROOT}/../mcp/server.ts"],
-      "cwd": "${CLAUDE_PLUGIN_ROOT}/.."
-    }
-  }
-}
