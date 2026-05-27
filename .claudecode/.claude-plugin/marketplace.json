@@ -1,0 +1,20 @@
+{
+  "name": "goal-memory-local",
+  "owner": {
+    "name": "chenfeibin"
+  },
+  "plugins": [
+    {
+      "name": "goal-memory",
+      "description": "Goal-oriented memory system for Claude. Injects active goal context on every session and provides MCP tools to manage goals, record attempts, and search the knowledge base.",
+      "source": {
+        "source": "git-subdir",
+        "url": "feibin95/goal-memory",
+        "path": ".claudecode",
+        "ref": "main",
+        "sha": "4d802348b046c7b3fde03c4ca9157002989cbb0d"
+      },
+      "homepage": "https://github.com/chenfeibin/goal-memory-demo"
+    }
+  ]
+}
