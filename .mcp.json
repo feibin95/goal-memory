@@ -1,8 +1,8 @@
 {
   "mcpServers": {
     "goal-memory": {
-      "command": "npx",
-      "args": ["--yes", "tsx", "${CLAUDE_PLUGIN_ROOT}/mcp/server.ts"],
+      "command": "sh",
+      "args": ["-c", "ROOT=\"${CLAUDE_PLUGIN_ROOT}\"; cd \"$ROOT\" && (node -e \"require('better-sqlite3')\" 2>/dev/null || npm rebuild better-sqlite3) && npx --yes tsx \"$ROOT/mcp/server.ts\""],
       "cwd": "${CLAUDE_PLUGIN_ROOT}"
     }
   }
