@@ -1,0 +1,8 @@
+{
+  "name": "goal-memory",
+  "version": "0.1.0",
+  "description": "Goal-oriented memory system for Claude. Injects active goal context on every session and provides MCP tools to manage goals, record attempts, and search the knowledge base.",
+  "author": {
+    "name": "chenfeibin"
+  }
+}
