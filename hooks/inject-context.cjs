@@ -2,7 +2,7 @@
 'use strict';
 
 const fs = require('fs');
-const { buildStateContext, getSessionKey } = require('../../plugin/build-state-context.cjs');
+const { buildStateContext, getSessionKey } = require('../plugin/build-state-context.cjs');
 
 const STATE_CHANGING_TOOLS = new Set([
   'bind_session', 'create_attempt', 'update_attempt', 'update_goal', 'create_goal',
