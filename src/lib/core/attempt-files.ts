@@ -1,8 +1,9 @@
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import type { Goal } from '@/types';
 
-let BASE_DIR = path.join(process.cwd(), '.goal-memory');
+let BASE_DIR = path.join(os.homedir(), '.goal-memory');
 
 export function setAttemptFilesBaseDir(dir: string): void {
   BASE_DIR = path.join(dir, '.goal-memory');

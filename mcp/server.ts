@@ -8,13 +8,11 @@ import { search } from "../src/lib/core/kb.js";
 import { GoalUtils, AttemptUtils, KBEntryUtils } from "../src/lib/core/models.js";
 import { saveSession, getSessionGoal, getSession, setSessionBaseDir, bindAttempt } from "../src/lib/core/session-store.js";
 import { setAttemptFilesBaseDir, createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from "../src/lib/core/attempt-files.js";
-import { fileURLToPath } from "node:url";
-import path from "node:path";
+import os from "node:os";
 
-const PROJECT_DIR = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-setBaseDir(PROJECT_DIR);
-setSessionBaseDir(PROJECT_DIR);
-setAttemptFilesBaseDir(PROJECT_DIR);
+setBaseDir(os.homedir());
+setSessionBaseDir(os.homedir());
+setAttemptFilesBaseDir(os.homedir());
 
 const server = new McpServer({ name: "goal-memory", version: "1.0.0" });
 

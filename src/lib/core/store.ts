@@ -1,11 +1,12 @@
 import { Goal, GoalUtils, Attempt, AttemptUtils, KBEntry, KBEntryUtils } from './models';
 import { getDb, setDbBaseDir } from './db';
 import { deleteSessionsByGoalId, getSessionByAttemptId } from './session-store';
+import os from 'node:os';
 import path from 'node:path';
 import fs from 'node:fs';
 
 export function setBaseDir(dir: string): void { setDbBaseDir(dir); }
-export function resetBaseDir(): void { setDbBaseDir(path.join(process.cwd())); }
+export function resetBaseDir(): void { setDbBaseDir(os.homedir()); }
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 

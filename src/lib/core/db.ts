@@ -1,5 +1,6 @@
 import Database from 'better-sqlite3';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
 // Bump this version whenever the schema changes.
@@ -34,7 +35,7 @@ const SESSIONS_DDL = `
 `;
 
 let db: Database.Database | null = null;
-let currentBaseDir = path.join(process.cwd(), '.goal-memory');
+let currentBaseDir = path.join(os.homedir(), '.goal-memory');
 
 export function setDbBaseDir(dir: string): void {
   if (db) { db.close(); db = null; }
