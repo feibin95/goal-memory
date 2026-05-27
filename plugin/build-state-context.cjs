@@ -8,8 +8,8 @@ const { execFileSync } = require('child_process');
 
 const PLUGIN_ROOT = process.env.CLAUDE_PLUGIN_ROOT;
 const PROJECT_ROOT = PLUGIN_ROOT
-  ? path.resolve(PLUGIN_ROOT, '..')   // CC：.claudecode/../ = 项目根
-  : path.resolve(__dirname, '..');    // Codex：plugin/../ = 项目根
+  ? PLUGIN_ROOT                        // CC：CLAUDE_PLUGIN_ROOT 就是版本目录（项目根）
+  : path.resolve(__dirname, '..');     // Codex：plugin/../ = 项目根
 const TSX = path.join(PROJECT_ROOT, 'node_modules/.bin/tsx');
 const CLI = path.join(PROJECT_ROOT, 'scripts/cli.ts');
 
