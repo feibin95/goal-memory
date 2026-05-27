@@ -9,14 +9,16 @@ export function setAttemptFilesBaseDir(dir: string): void {
 }
 
 export function buildAttemptDirName(goalTitle: string, seq: number): string {
-  const _d = new Date(); const _p = (n: number) => String(n).padStart(2, '0');
-  const date = `${String(_d.getFullYear()).slice(2)}${_p(_d.getMonth()+1)}${_p(_d.getDate())}`; // "YYMMDD" local
   const safeTitle = goalTitle.replace(/[/\\:*?"<>|]/g, '-');
-  return `${safeTitle}-${date}-${seq}`;
+  return `${safeTitle}-${seq}`;
 }
 
 export function getAttemptFilesDir(dirName: string): string {
-  return path.join(BASE_DIR, 'attempts', dirName);
+  const _d = new Date(); const _p = (n: number) => String(n).padStart(2, '0');
+  const yyyy = String(_d.getFullYear());
+  const mm = _p(_d.getMonth() + 1);
+  const dd = _p(_d.getDate());
+  return path.join(BASE_DIR, 'attempts', yyyy, mm, dd, dirName);
 }
 
 export function createAttemptFiles(dirName: string, goal: Goal): string {
