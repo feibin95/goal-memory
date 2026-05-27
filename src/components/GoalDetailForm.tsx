@@ -134,8 +134,33 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
 
   useEffect(() => { form.reset(mapGoalToForm(goal)); }, [goal.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const bgValue = form.watch('background');
+  const scValue = form.watch('success_criteria');
+  const bgRef = useRef<HTMLTextAreaElement | null>(null);
+  const scRef = useRef<HTMLTextAreaElement | null>(null);
+
+  useEffect(() => {
+    const el = bgRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [bgValue]);
+
+  useEffect(() => {
+    const el = scRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = el.scrollHeight + 'px';
+  }, [scValue]);
+
   const { isDirty } = form.formState;
   useEffect(() => { onDirtyChange?.(isDirty); }, [isDirty, onDirtyChange]);
+
+  const isExtrasDirty =
+    depIds.length !== (goal.dependencies ?? []).length ||
+    depIds.some((id, i) => id !== (goal.dependencies ?? [])[i]) ||
+    parentIds.length !== (goal.parent_ids ?? []).length ||
+    parentIds.some((id, i) => id !== (goal.parent_ids ?? [])[i]);
 
   const onSubmit = async (values: GoalDetailFormValues) => {
     setSaving(true);
@@ -156,6 +181,8 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
   const handleContext = async () => { const data = await api.getContext(goal.id); setContextText(data.markdown); };
 
   const { errors } = form.formState;
+  const { ref: bgFormRef, ...bgRest } = form.register('background');
+  const { ref: scFormRef, ...scRest } = form.register('success_criteria');
 
   return (
     <>
@@ -163,19 +190,22 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
         <form className="detail-form" onSubmit={form.handleSubmit(onSubmit)}>
           <div className="form-section" style={{ borderTop: 0, paddingTop: 0 }}>
             <div className="field-group">
-              <label className="field-label">标题</label>
+              <label className="field-label">
+                标题
+                <span style={{ marginLeft: 8, fontWeight: 400, color: 'var(--color-text-muted, #888)', fontSize: '0.85em' }}>#{goal.id}</span>
+              </label>
               <input {...form.register('title')} type="text" />
               {errors.title && <span className="field-error">{errors.title.message}</span>}
             </div>
           </div>
           <div className="form-section">
             <h2>背景问题</h2>
-            <textarea {...form.register('background')} rows={3} />
+            <textarea {...bgRest} ref={(el) => { bgFormRef(el); bgRef.current = el; }} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
             {errors.background && <span className="field-error">{errors.background.message}</span>}
           </div>
           <div className="form-section">
             <h2>成功标准</h2>
-            <textarea {...form.register('success_criteria')} rows={2} />
+            <textarea {...scRest} ref={(el) => { scFormRef(el); scRef.current = el; }} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
           </div>
           <div className="form-section">
             <div className="field-row">
@@ -301,7 +331,7 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
             </div>
             <div className="btn-group" style={{ marginLeft: 'auto' }}>
               <button type="button" className="danger" onClick={handleDelete}>删除</button>
-              <button type="submit" className="primary" disabled={saving || !isDirty}>
+              <button type="submit" className="primary" disabled={saving || (!isDirty && !isExtrasDirty)}>
                 {saving ? '保存中…' : '保存'}
               </button>
             </div>

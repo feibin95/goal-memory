@@ -18,7 +18,7 @@ function cutoffISO(): string {
 function rowToSession(r: Record<string, unknown>): SessionRecord {
   return {
     session_key: r['session_key'] as string,
-    goal_id:     String(r['goal_id']),
+    goal_id:     (r['goal_id'] as number) === -1 ? 'NONE' : String(r['goal_id']),
     attempt_id:  r['attempt_id'] != null ? String(r['attempt_id']) : undefined,
     created_at:  r['created_at'] as string,
   };
@@ -32,7 +32,7 @@ export function saveSession(sessionKey: string, goalId: string): void {
     INSERT INTO sessions (session_key, goal_id, created_at)
     VALUES (?, ?, ?)
     ON CONFLICT(session_key) DO UPDATE SET goal_id = excluded.goal_id, created_at = excluded.created_at
-  `).run(sessionKey, Number(goalId), new Date().toISOString());
+  `).run(sessionKey, goalId === 'NONE' ? -1 : Number(goalId), new Date().toISOString());
 }
 
 export function getSessionGoal(sessionKey: string): string | null {
