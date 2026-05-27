@@ -8,11 +8,10 @@
       "name": "goal-memory",
       "description": "Goal-oriented memory system for Claude. Injects active goal context on every session and provides MCP tools to manage goals, record attempts, and search the knowledge base.",
       "source": {
-        "source": "git-subdir",
-        "url": "feibin95/goal-memory",
-        "path": ".claudecode",
+        "source": "url",
+        "url": "https://github.com/feibin95/goal-memory.git",
         "ref": "main",
-        "sha": "55bf541536860202f1a5120779fbe7b0d741f8d8"
+        "sha": "a54232c6e2d3b1e964520627a2071ee2a6973a97"
       },
       "homepage": "https://github.com/feibin95/goal-memory"
     }
