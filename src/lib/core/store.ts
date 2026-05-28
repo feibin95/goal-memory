@@ -169,7 +169,7 @@ export function loadAttempts(): Attempt[] {
 }
 
 export function attemptsForGoal(goalId: string): Attempt[] {
-  return (getDb().prepare('SELECT * FROM attempts WHERE goal_id = ?').all(Number(goalId)) as Record<string, unknown>[]).map(rowToAttempt);
+  return (getDb().prepare('SELECT * FROM attempts WHERE goal_id = ? ORDER BY created_at DESC LIMIT 3').all(Number(goalId)) as Record<string, unknown>[]).map(rowToAttempt);
 }
 
 export function getAttemptById(id: string): Attempt | null {

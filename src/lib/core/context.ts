@@ -1,6 +1,5 @@
 import type { Goal } from '@/types';
 import { loadGoals, attemptsForGoal } from './store';
-import { search } from './kb';
 
 const MAX_PATHS = 5;
 const MAX_DEPTH = 6;
@@ -51,21 +50,6 @@ export function buildContextPack(goalId: string, opts: { compact?: boolean } = {
 
   const attempts = attemptsForGoal(goalId);
 
-  const queryText = [goal.title, goal.background, goal.success_criteria].join(' ');
-  const terms: string[] = [];
-  for (const m of queryText.matchAll(/[一-鿿]{2,}|[a-z0-9_-]{4,}/gi)) {
-    const term = m[0].toLowerCase();
-    if (!terms.includes(term)) terms.push(term);
-  }
-  const snippets: ReturnType<typeof search> = [];
-  const seenKb = new Set<string>();
-  for (const term of terms) {
-    for (const entry of search(term)) {
-      if (!seenKb.has(entry.id)) { snippets.push(entry); seenKb.add(entry.id); }
-    }
-    if (snippets.length >= 3) break;
-  }
-
   const lines: string[] = [];
 
   // 上层目标
@@ -109,7 +93,7 @@ export function buildContextPack(goalId: string, opts: { compact?: boolean } = {
     if (compact) {
       lines.push(`_共 ${attempts.length} 个历史 attempt。_`);
     } else {
-      for (const a of attempts.slice(-5)) {
+      for (const a of attempts) {
         lines.push(`### 尝试${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
         lines.push(`- **假设:** ${a.hypothesis}`, `- **行动:** ${a.action}`, `- **结果:** ${a.result}`);
       }
@@ -117,14 +101,5 @@ export function buildContextPack(goalId: string, opts: { compact?: boolean } = {
   } else { lines.push('_暂无尝试记录。_'); }
   lines.push('');
 
-  // 相关知识库片段
-  lines.push('## 相关知识库片段');
-  if (snippets.length > 0) {
-    for (const s of snippets.slice(0, 3)) {
-      lines.push(`### ${s.title}`, s.body.length > 300 ? s.body.slice(0, 300) + '...' : s.body);
-      if (s.tags.length > 0) lines.push(`*标签: ${s.tags.join(', ')}*`);
-    }
-  } else { lines.push('_无匹配的知识库内容。_'); }
-  lines.push('');
   return lines.join('\n');
 }
