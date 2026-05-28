@@ -26,78 +26,24 @@ export function createAttemptFiles(dirName: string, goal: Goal): string {
   const dir = getAttemptFilesDir(dirName);
   fs.mkdirSync(dir, { recursive: true });
 
-  const _now = new Date(); const _pp = (n: number) => String(n).padStart(2, '0');
-  const today = `${_now.getFullYear()}-${_pp(_now.getMonth()+1)}-${_pp(_now.getDate())}`;
-
   const taskPlan = [
     `# Task Plan: ${goal.title}`,
     '',
-    '## Goal',
-    goal.success_criteria || goal.background,
+    `目标：${goal.success_criteria || goal.background}`,
     '',
-    '## Current Phase',
-    'Phase 1 - 分析与规划',
-    '',
-    '## Phases',
-    '- [ ] Phase 1: 分析与规划',
-    '- [ ] Phase 2: 实现',
-    '- [ ] Phase 3: 验证与收尾',
-    '',
-    '## Key Questions',
-    '<!-- 执行过程中需要回答的关键问题 -->',
-    '',
-    '## Decisions Made',
-    '<!-- 技术/设计决策，格式: 决策 — 理由 -->',
-    '',
-    '## Errors Encountered',
-    '<!-- 格式: [尝试#N] 错误描述 — 解决方案 -->',
+    '记录目标分解、执行阶段划分、关键决策及遇到的错误。格式自由，按实际需要组织。',
   ].join('\n');
 
   const findings = [
     `# Findings: ${goal.title}`,
     '',
-    '## Requirements',
-    goal.success_criteria || '（待补充）',
-    '',
-    '## Background',
-    goal.background || '（待补充）',
-    '',
-    '## Research Findings',
-    '<!-- 调研发现、关键信息 -->',
-    '',
-    '## Technical Decisions',
-    '<!-- 架构/技术选型决策及理由 -->',
-    '',
-    '## Issues Encountered',
-    '<!-- 遇到的问题和解决方案 -->',
-    '',
-    '## Resources',
-    '<!-- 有用的链接、文件路径、API 参考 -->',
+    '存放调研发现、技术方案选型、已知约束与问题。有新发现随时追加，不需要固定格式。',
   ].join('\n');
 
   const progress = [
     `# Progress: ${goal.title}`,
     '',
-    '## Session Log',
-    `### Session 1 — ${today}`,
-    '- **Status**: Started',
-    '- **Actions**: ',
-    '- **Files Modified**: ',
-    '',
-    '## Test Results',
-    '| Input | Expected | Actual | Status |',
-    '|-------|----------|--------|--------|',
-    '',
-    '## Error Log',
-    '| # | Timestamp | Error | Resolution |',
-    '|---|-----------|-------|------------|',
-    '',
-    '## Reboot Check (5 Questions)',
-    '1. **Where am I?** Current phase: Phase 1',
-    '2. **Where am I going?** Next: Phase 2',
-    `3. **What\'s the goal?** ${goal.title}`,
-    '4. **What have I learned?** See findings.md',
-    '5. **What have I done?** This session log',
+    '记录每次会话的进展、测试结果、错误日志。开始新会话时先读此文件恢复上下文。',
   ].join('\n');
 
   fs.writeFileSync(path.join(dir, 'task_plan.md'), taskPlan, 'utf-8');
@@ -121,9 +67,16 @@ export function readAttemptFiles(filesDir: string): { taskPlan: string; findings
 
 export function formatAttemptFilesForContext(attemptId: string, filesDir: string): string {
   if (!filesDir) return '';
+  const desc: Record<string, string> = {
+    'task_plan.md': '目标分解与决策记录',
+    'findings.md': '调研发现与技术方案',
+    'progress.md': '会话日志与进度跟踪',
+  };
   const lines: string[] = [`## 执行规划文件（Attempt: ${attemptId}）`];
   for (const name of ['task_plan.md', 'findings.md', 'progress.md']) {
-    lines.push(`- ${name}: ${path.join(filesDir, name)}`);
+    lines.push(`- ${name}（${desc[name]}）: ${path.join(filesDir, name)}`);
   }
+  lines.push('');
+  lines.push('> 使用规范：开始工作前读 progress.md 恢复上下文；调研结论和技术决策写入 findings.md；阶段推进或决策变更时更新 task_plan.md。');
   return lines.join('\n');
 }
