@@ -35,8 +35,8 @@ function fetchGoals() {
   return cliJson(['list', '--json'], null);
 }
 
-function fetchContext(goalId) {
-  return cliText(['context', goalId]);
+function fetchContext(goalId, compact) {
+  return cliText(compact ? ['context', goalId, '--compact'] : ['context', goalId]);
 }
 
 function fetchAvailableAttempts(goalId) {
@@ -159,7 +159,7 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
 
 // ─── 主调度器 ──────────────────────────────────────────────────────────────────
 
-function buildStateContext(sessionKey) {
+function buildStateContext(sessionKey, compact = false) {
   const { goal_id: goalId, attempt_id: attemptId } = fetchSession(sessionKey);
 
   if (!goalId) {
@@ -168,7 +168,7 @@ function buildStateContext(sessionKey) {
 
   if (goalId === 'NONE') return null;
 
-  const context = fetchContext(goalId);
+  const context = fetchContext(goalId, compact);
   if (!context) return null;
 
   if (!attemptId) {

@@ -31,15 +31,20 @@ function findAncestorPaths(
   return paths.length > 0 ? paths : [[]];
 }
 
-function renderNode(g: Goal): string[] {
+function truncate(text: string, max: number): string {
+  return text.length > max ? text.slice(0, max) + '…' : text;
+}
+
+function renderNode(g: Goal, compact = false): string[] {
   const lines: string[] = [`**${g.title}**`];
-  if (g.background) lines.push(`- 背景：${g.background}`);
-  if (g.success_criteria) lines.push(`- 成功标准：${g.success_criteria}`);
+  if (g.background) lines.push(`- 背景：${compact ? truncate(g.background, 20) : g.background}`);
+  if (g.success_criteria) lines.push(`- 成功标准：${compact ? truncate(g.success_criteria, 20) : g.success_criteria}`);
   if (g.ddl) lines.push(`- DDL：${g.ddl}`);
   return lines;
 }
 
-export function buildContextPack(goalId: string): string | null {
+export function buildContextPack(goalId: string, opts: { compact?: boolean } = {}): string | null {
+  const compact = opts.compact ?? false;
   const goals = loadGoals();
   const goal = goals.get(goalId);
   if (!goal) return null;
@@ -79,14 +84,14 @@ export function buildContextPack(goalId: string): string | null {
         lines.push(`### 分支 ${i + 1}：${truncated ? '… → ' : ''}${branchTitle}`, '');
       }
       for (const ancestor of path) {
-        lines.push(...renderNode(ancestor), '');
+        lines.push(...renderNode(ancestor, compact), '');
       }
     }
   }
 
   // 当前目标
   lines.push('## 当前目标', '');
-  lines.push(...renderNode(goal), '');
+  lines.push(...renderNode(goal, compact), '');
 
   // 依赖项
   lines.push('## 依赖项');
@@ -101,9 +106,13 @@ export function buildContextPack(goalId: string): string | null {
   // 近期尝试
   lines.push('## 近期尝试');
   if (attempts.length > 0) {
-    for (const a of attempts.slice(-5)) {
-      lines.push(`### 尝试${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
-      lines.push(`- **假设:** ${a.hypothesis}`, `- **行动:** ${a.action}`, `- **结果:** ${a.result}`);
+    if (compact) {
+      lines.push(`_共 ${attempts.length} 个历史 attempt。_`);
+    } else {
+      for (const a of attempts.slice(-5)) {
+        lines.push(`### 尝试${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
+        lines.push(`- **假设:** ${a.hypothesis}`, `- **行动:** ${a.action}`, `- **结果:** ${a.result}`);
+      }
     }
   } else { lines.push('_暂无尝试记录。_'); }
   lines.push('');

@@ -141,8 +141,9 @@ program.command('delete <goalId>').description('Delete a goal (cascades to orpha
   });
 
 program.command('context <goalId>').description('Generate context pack')
-  .action((goalId) => {
-    const pack = buildContextPack(goalId);
+  .option('--compact', 'Truncate long fields and skip attempt history')
+  .action((goalId, opts) => {
+    const pack = buildContextPack(goalId, { compact: opts.compact });
     if (!pack) { console.error('Error: goal not found.'); process.exit(1); }
     console.log(pack);
   });

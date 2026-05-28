@@ -3,15 +3,12 @@
 
 const path = require('path');
 const { execSync } = require('child_process');
+const { readStdinJson } = require('../plugin/inject-core.cjs');
 
-const CLI = path.resolve(__dirname, '../../scripts/cli.ts');
+const CLI = path.resolve(__dirname, '../scripts/cli.ts');
 
-let data = '';
-process.stdin.setEncoding('utf8');
-process.stdin.on('data', chunk => { data += chunk; });
-process.stdin.on('end', () => {
+readStdinJson(input => {
   try {
-    const input = JSON.parse(data || '{}');
     const transcriptPath = input.transcript_path;
     if (!transcriptPath) process.exit(0);
 

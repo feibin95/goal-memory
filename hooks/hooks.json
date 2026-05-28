@@ -1,22 +1,11 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/inject-context.cjs",
-            "timeout": 5
-          }
-        ]
-      }
-    ],
     "PostToolUse": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/inject-context.cjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/plugin/claude-inject-context.cjs",
             "timeout": 5
           }
         ]
@@ -27,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node ${CLAUDE_PLUGIN_ROOT}/hooks/inject-context.cjs",
+            "command": "node ${CLAUDE_PLUGIN_ROOT}/plugin/claude-inject-context.cjs",
             "timeout": 5
           }
         ]

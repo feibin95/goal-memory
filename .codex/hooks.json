@@ -1,24 +1,11 @@
 {
   "hooks": {
-    "SessionStart": [
-      {
-        "matcher": "startup|resume",
-        "hooks": [
-          {
-            "type": "command",
-            "command": "node .codex/hooks/inject-context.cjs SessionStart json 2>/dev/null || true",
-            "timeout": 5,
-            "statusMessage": "Loading GoalMem context"
-          }
-        ]
-      }
-    ],
     "UserPromptSubmit": [
       {
         "hooks": [
           {
             "type": "command",
-            "command": "node .codex/hooks/inject-context.cjs UserPromptSubmit json 2>/dev/null || true",
+            "command": "node plugin/codex-inject-context.cjs UserPromptSubmit json 2>/dev/null || true",
             "timeout": 5
           }
         ]
@@ -29,7 +16,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node .codex/hooks/inject-context.cjs PostToolUse json 2>/dev/null || true",
+            "command": "node plugin/codex-inject-context.cjs PostToolUse json 2>/dev/null || true",
             "timeout": 5,
             "statusMessage": "Refreshing GoalMem context"
           }
