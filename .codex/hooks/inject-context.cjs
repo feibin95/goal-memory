@@ -17,7 +17,7 @@ const STATE_CHANGING_TOOLS = new Set([
   'delete_goal',
 ]);
 
-const PERIODIC_INTERVAL = 5;
+const PERIODIC_INTERVAL = 20;
 
 function loadPayload() {
   const raw = fs.readFileSync(0, 'utf8').trim();

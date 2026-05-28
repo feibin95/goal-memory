@@ -7,7 +7,7 @@ const { buildStateContext, getSessionKey } = require('../plugin/build-state-cont
 const STATE_CHANGING_TOOLS = new Set([
   'bind_session', 'create_attempt', 'update_attempt', 'update_goal', 'create_goal',
 ]);
-const PERIODIC_INTERVAL = 10;
+const PERIODIC_INTERVAL = 20;
 
 function shouldInject(input, sessionKey) {
   if (input.hook_event_name !== 'PostToolUse') return true;

@@ -91,6 +91,7 @@ server.registerTool(
     if (existingAttemptId) {
       const existing = getAttemptById(existingAttemptId);
       if (!existing) return { content: [{ type: "text", text: `Attempt not found: ${existingAttemptId}` }] };
+      if (!getSession(sessionKey)) saveSession(sessionKey, goal.id);
       bindAttempt(sessionKey, existingAttemptId);
       if (goal.status === "ready") { goal.status = "in_progress"; goal.updated_at = new Date().toISOString(); saveGoal(goal); }
       return {
@@ -106,6 +107,7 @@ server.registerTool(
     const filesDir = createAttemptFiles(dirName, goal);
     const attempt = saveAttempt(AttemptUtils.createActive(goal.id, filesDir, hypothesis ?? ""));
     if (goal.status === "ready") { goal.status = "in_progress"; goal.updated_at = new Date().toISOString(); saveGoal(goal); }
+    if (!getSession(sessionKey)) saveSession(sessionKey, goal.id);
     bindAttempt(sessionKey, attempt.id);
     return {
       content: [{
