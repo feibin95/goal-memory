@@ -138,10 +138,12 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
   collapsedIdsRef.current = collapsedIds;
 
   const [cuePositions, setCuePositions] = useState<CuePos[]>([]);
+  const [canvasZoom, setCanvasZoom] = useState(1);
 
   const updateCues = () => {
     const cy = cyRef.current;
     if (!cy) return;
+    setCanvasZoom(cy.zoom());
     const currentGoals = goalsRef.current;
     const currentCollapsed = collapsedIdsRef.current;
     const childrenOf: Record<string, boolean> = {};
@@ -214,35 +216,39 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
   return (
     <div style={{ position: 'relative', height: '100%', width: '100%' }}>
       <div ref={containerRef} style={{ height: '100%', width: '100%', background: 'var(--bg)' }} />
-      {cuePositions.map(({ id, x, y, collapsed }) => (
-        <button
-          key={id}
-          onClick={() => onToggleCollapseRef.current(id)}
-          title={collapsed ? '展开子目标' : '收起子目标'}
-          style={{
-            position: 'absolute',
-            left: x - 7,
-            top: y - 7,
-            width: 14,
-            height: 14,
-            borderRadius: '50%',
-            border: `1px solid ${collapsed ? '#e6b85c' : '#4a5060'}`,
-            background: '#17191d',
-            color: collapsed ? '#e6b85c' : '#8a9ab5',
-            fontSize: 10,
-            lineHeight: '12px',
-            cursor: 'pointer',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            zIndex: 10,
-            padding: 0,
-            userSelect: 'none',
-          }}
-        >
-          {collapsed ? '+' : '−'}
-        </button>
-      ))}
+      {cuePositions.map(({ id, x, y, collapsed }) => {
+        const btnSize = Math.round(14 * canvasZoom);
+        const half = btnSize / 2;
+        return (
+          <button
+            key={id}
+            onClick={() => onToggleCollapseRef.current(id)}
+            title={collapsed ? '展开子目标' : '收起子目标'}
+            style={{
+              position: 'absolute',
+              left: x - half,
+              top: y - half,
+              width: btnSize,
+              height: btnSize,
+              borderRadius: '50%',
+              border: `${Math.max(0.5, canvasZoom)}px solid ${collapsed ? '#e6b85c' : '#4a5060'}`,
+              background: '#17191d',
+              color: collapsed ? '#e6b85c' : '#8a9ab5',
+              fontSize: Math.round(10 * canvasZoom),
+              lineHeight: `${Math.round(12 * canvasZoom)}px`,
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              zIndex: 10,
+              padding: 0,
+              userSelect: 'none',
+            }}
+          >
+            {collapsed ? '+' : '−'}
+          </button>
+        );
+      })}
     </div>
   );
 }
