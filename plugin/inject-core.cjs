@@ -76,8 +76,7 @@ function toolShortName(payload) {
  * Core injection flow: throttle check → compact decision → fetch context → emit.
  *
  * Compact logic:
- *   - state-change tool → full, delete full-sent flag (next injection also full)
- *   - first injection in session (no flag) → full, write flag
+ *   - state-change tool → full
  *   - otherwise → compact
  */
 function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval, format = 'json') {
@@ -88,17 +87,7 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
     return 'throttled';
   }
 
-  const flagFile = path.join(os.tmpdir(), `goalmem-full-sent-${sessionKey}`);
-  let compact;
-  if (isStateChange) {
-    compact = false;
-    try { fs.unlinkSync(flagFile); } catch (_) {}
-  } else if (!fs.existsSync(flagFile)) {
-    compact = false;
-    try { fs.writeFileSync(flagFile, '1'); } catch (_) {}
-  } else {
-    compact = true;
-  }
+  const compact = !isStateChange;
 
   const { buildStateContext } = require('./build-state-context.cjs');
   const context = buildStateContext(sessionKey, compact);
