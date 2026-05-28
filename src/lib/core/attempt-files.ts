@@ -121,10 +121,9 @@ export function readAttemptFiles(filesDir: string): { taskPlan: string; findings
 
 export function formatAttemptFilesForContext(attemptId: string, filesDir: string): string {
   if (!filesDir) return '';
-  const { taskPlan, findings, progress } = readAttemptFiles(filesDir);
-  const lines: string[] = [`## 执行规划文件（Attempt: ${attemptId}）`, ''];
-  if (taskPlan) { lines.push('### task_plan.md', '', taskPlan, ''); }
-  if (findings) { lines.push('### findings.md', '', findings, ''); }
-  if (progress) { lines.push('### progress.md', '', progress, ''); }
+  const lines: string[] = [`## 执行规划文件（Attempt: ${attemptId}）`];
+  for (const name of ['task_plan.md', 'findings.md', 'progress.md']) {
+    lines.push(`- ${name}: ${path.join(filesDir, name)}`);
+  }
   return lines.join('\n');
 }
