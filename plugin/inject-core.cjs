@@ -14,6 +14,11 @@ function throttleByCounter(counterFile, interval) {
   let count = 0;
   try { count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0; } catch (_) {}
   count += 1;
+  if (count === 1) {
+    // 首次调用（session 刚开始）始终注入
+    fs.writeFileSync(counterFile, String(count));
+    return true;
+  }
   if (count < interval) {
     fs.writeFileSync(counterFile, String(count));
     return false;
