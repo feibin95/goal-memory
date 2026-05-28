@@ -1,7 +1,7 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
-import { setBaseDir, loadGoals, loadAttempts, getGoal, saveGoal, deleteGoal, saveAttempt, saveKbEntry, getAttemptById, updateAttempt, deleteAttempt, getAvailableAttempts, nextAttemptSeq } from "../src/lib/core/store.js";
+import { setBaseDir, loadGoals, loadAttempts, getGoal, saveGoal, deleteGoal, saveAttempt, saveKbEntry, deleteKbEntry, getAttemptById, updateAttempt, deleteAttempt, getAvailableAttempts, nextAttemptSeq } from "../src/lib/core/store.js";
 import { pickNext, candidateGoals, filterGoals } from "../src/lib/core/scheduler.js";
 import { buildContextPack } from "../src/lib/core/context.js";
 import { search } from "../src/lib/core/kb.js";
@@ -290,9 +290,21 @@ server.registerTool(
     },
   },
   async ({ title, body, tags }) => {
-    const entry = KBEntryUtils.create(title, body, tags ?? []);
-    saveKbEntry(entry);
+    const entry = saveKbEntry(KBEntryUtils.create(title, body, tags ?? []));
     return { content: [{ type: "text", text: `KB entry [${entry.id}] "${entry.title}" added.` }] };
+  }
+);
+
+server.registerTool(
+  "kb_delete",
+  {
+    description: "删除知识库条目",
+    inputSchema: { id: z.string().describe("条目 ID") },
+  },
+  async ({ id }) => {
+    const ok = deleteKbEntry(id);
+    if (!ok) return { content: [{ type: "text", text: `KB entry [${id}] not found.` }] };
+    return { content: [{ type: "text", text: `KB entry [${id}] deleted.` }] };
   }
 );
 

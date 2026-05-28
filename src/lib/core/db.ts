@@ -6,7 +6,8 @@ import path from 'node:path';
 // Bump this version whenever the schema changes.
 // v0/v1 → v2: goals.id TEXT → INTEGER AUTOINCREMENT (full drop, re-migrate from JSONL)
 // v2 → v3: attempts.id TEXT → INTEGER AUTOINCREMENT; sessions.attempt_id TEXT → INTEGER
-const SCHEMA_VERSION = 3;
+// v3 → v4: kb_entries.id TEXT → INTEGER AUTOINCREMENT
+const SCHEMA_VERSION = 4;
 
 const ATTEMPTS_DDL = `
   CREATE TABLE IF NOT EXISTS attempts (
@@ -80,6 +81,22 @@ function initSchema(db: Database.Database): void {
     for (const r of sessionRows) {
       ins.run(r['session_key'], Number(r['goal_id']), r['attempt_id'] ?? null, r['created_at']);
     }
+    // fall through to v3 migration
+  }
+
+  if (version >= 2 && version <= 3) {
+    // Migrate kb_entries: TEXT id → INTEGER AUTOINCREMENT
+    const kbRows = db.prepare('SELECT title, body, tags, created_at FROM kb_entries').all() as Record<string, unknown>[];
+    db.exec('DROP TABLE IF EXISTS kb_entries;');
+    db.exec(`CREATE TABLE kb_entries (
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
+      title      TEXT NOT NULL,
+      body       TEXT NOT NULL,
+      tags       TEXT NOT NULL DEFAULT '[]',
+      created_at TEXT NOT NULL
+    );`);
+    const insKb = db.prepare('INSERT INTO kb_entries (title, body, tags, created_at) VALUES (@title, @body, @tags, @created_at)');
+    for (const row of kbRows) insKb.run(row);
     db.pragma(`user_version = ${SCHEMA_VERSION}`);
     return;
   }
@@ -101,7 +118,7 @@ function initSchema(db: Database.Database): void {
     );
   ` + ATTEMPTS_DDL + `
     CREATE TABLE IF NOT EXISTS kb_entries (
-      id         TEXT PRIMARY KEY,
+      id         INTEGER PRIMARY KEY AUTOINCREMENT,
       title      TEXT NOT NULL,
       body       TEXT NOT NULL,
       tags       TEXT NOT NULL DEFAULT '[]',

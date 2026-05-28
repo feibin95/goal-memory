@@ -27,6 +27,7 @@ function rowToAttempt(r: Record<string, unknown>): Attempt {
 function rowToKBEntry(r: Record<string, unknown>): KBEntry {
   return KBEntryUtils.fromDict({
     ...r,
+    id: String(r['id']),
     tags: JSON.parse(r['tags'] as string),
   });
 }
@@ -222,13 +223,21 @@ export function deleteAttempt(id: string): boolean {
 
 // ── KB ────────────────────────────────────────────────────────────────────────
 
-export function saveKbEntry(entry: KBEntry): void {
-  getDb().prepare(`
-    INSERT INTO kb_entries (id, title, body, tags, created_at)
-    VALUES (@id, @title, @body, @tags, @created_at)
-  `).run({ ...entry, tags: JSON.stringify(entry.tags) });
+export function saveKbEntry(entry: KBEntry): KBEntry {
+  const { id: _drop, ...rest } = entry;
+  void _drop;
+  const info = getDb().prepare(`
+    INSERT INTO kb_entries (title, body, tags, created_at)
+    VALUES (@title, @body, @tags, @created_at)
+  `).run({ ...rest, tags: JSON.stringify(rest.tags) });
+  return { ...entry, id: String(info.lastInsertRowid) };
 }
 
 export function loadKb(): KBEntry[] {
   return (getDb().prepare('SELECT * FROM kb_entries').all() as Record<string, unknown>[]).map(rowToKBEntry);
+}
+
+export function deleteKbEntry(id: string): boolean {
+  const info = getDb().prepare('DELETE FROM kb_entries WHERE id = ?').run(Number(id));
+  return info.changes > 0;
 }

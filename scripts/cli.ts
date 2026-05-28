@@ -1,6 +1,6 @@
 import { Command } from 'commander';
 import { GoalUtils, AttemptUtils, validateDdl, formatLocalTime } from '../src/lib/core/models';
-import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt, nextAttemptSeq } from '../src/lib/core/store';
+import { saveGoal, loadGoals, getGoal, deleteGoal, saveAttempt, loadAttempts, getAvailableAttempts, getAttemptById, updateAttempt, deleteAttempt, nextAttemptSeq, deleteKbEntry } from '../src/lib/core/store';
 import { filterGoals, pickNext, candidateGoals } from '../src/lib/core/scheduler';
 import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
@@ -226,6 +226,12 @@ kb.command('add').requiredOption('--title <title>').requiredOption('--body <body
   .action((opts) => {
     const entry = addEntry(opts.title, opts.body, opts.tags ? opts.tags.split(',').map((t: string) => t.trim()).filter(Boolean) : []);
     console.log('KB entry [' + entry.id + '] added.');
+  });
+kb.command('delete <id>').description('Delete a KB entry by ID')
+  .action((id) => {
+    const ok = deleteKbEntry(id);
+    if (!ok) { console.error('Error: KB entry ' + id + ' not found.'); process.exit(1); }
+    console.log('Deleted KB entry [' + id + '].');
   });
 kb.command('search <query>').action((query) => {
   const results = search(query);

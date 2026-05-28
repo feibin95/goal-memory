@@ -3,9 +3,7 @@ import { KBEntryUtils } from './models';
 import { saveKbEntry, loadKb } from './store';
 
 export function addEntry(title: string, body: string, tags: string[]): KBEntry {
-  const entry = KBEntryUtils.create(title, body, tags);
-  saveKbEntry(entry);
-  return entry;
+  return saveKbEntry(KBEntryUtils.create(title, body, tags));
 }
 
 export function search(query: string): KBEntry[] {

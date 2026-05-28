@@ -2,10 +2,6 @@ export type { GoalStatus, Goal, Attempt, KBEntry } from '@/types';
 import type { Goal, Attempt, KBEntry } from '@/types';
 import { GoalSchema, AttemptSchema, KBEntrySchema } from '../../types/index';
 
-function newId(): string {
-  return crypto.randomUUID().slice(0, 8);
-}
-
 function now(): string {
   return new Date().toISOString();
 }
@@ -100,7 +96,7 @@ export const AttemptUtils = {
 
 export const KBEntryUtils = {
   create(title: string, body: string, tags?: string[]): KBEntry {
-    return { id: newId(), title, body, tags: tags ?? [], created_at: now() };
+    return { id: '', title, body, tags: tags ?? [], created_at: now() };
   },
   toDict(e: KBEntry): Record<string, unknown> { return { ...e }; },
   fromDict(d: Record<string, unknown>): KBEntry { return KBEntrySchema.parse(d); },
