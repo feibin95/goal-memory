@@ -3,15 +3,16 @@ import { NextResponse } from 'next/server';
 import { validateDdl } from '@/lib/core/models';
 import { getGoal, saveGoal, deleteGoal, loadGoals, loadAttempts } from '@/lib/core/store';
 import { GoalStatusSchema } from '@/types';
+import { GOAL_FIELD_LIMITS, maxLengthMessage } from '@/lib/core/field-policy';
 
 const updateGoalSchema = z.object({
-  title:            z.string().min(1).optional(),
-  background:       z.string().optional(),
-  success_criteria: z.string().optional(),
+  title:            z.string().min(1).max(GOAL_FIELD_LIMITS.title, maxLengthMessage('标题', GOAL_FIELD_LIMITS.title)).optional(),
+  background:       z.string().max(GOAL_FIELD_LIMITS.background, maxLengthMessage('背景问题', GOAL_FIELD_LIMITS.background)).optional(),
+  success_criteria: z.string().max(GOAL_FIELD_LIMITS.successCriteria, maxLengthMessage('成功标准', GOAL_FIELD_LIMITS.successCriteria)).optional(),
   status:           GoalStatusSchema.optional(),
   cost:             z.number().int().optional(),
   ddl:              z.string().nullable().optional(),
-  notes:            z.array(z.string()).optional(),
+  notes:            z.array(z.string().max(GOAL_FIELD_LIMITS.note, maxLengthMessage('备注', GOAL_FIELD_LIMITS.note))).optional(),
   parent_ids:       z.array(z.string()).optional(),
   dependencies:     z.array(z.string()).optional(),
 });

@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { ATTEMPT_FIELD_LIMITS, GOAL_FIELD_LIMITS, maxLengthMessage } from '@/lib/core/field-policy';
 
 export const GoalStatusSchema = z.enum(['ready', 'in_progress', 'done']);
 export type GoalStatus = z.infer<typeof GoalStatusSchema>;
@@ -21,13 +22,13 @@ export type Goal = z.infer<typeof GoalSchema>;
 
 // 表单校验 schema：不带默认值，react-hook-form 要求 input/output 类型一致
 export const goalDetailSchema = z.object({
-  title:            z.string().min(1, '标题不能为空').max(6, '标题不能超过 6 个字'),
-  background:       z.string().min(1, '背景问题不能为空'),
-  success_criteria: z.string(),
+  title:            z.string().min(1, '标题不能为空').max(GOAL_FIELD_LIMITS.title, maxLengthMessage('标题', GOAL_FIELD_LIMITS.title)),
+  background:       z.string().min(1, '背景问题不能为空').max(GOAL_FIELD_LIMITS.background, maxLengthMessage('背景问题', GOAL_FIELD_LIMITS.background)),
+  success_criteria: z.string().max(GOAL_FIELD_LIMITS.successCriteria, maxLengthMessage('成功标准', GOAL_FIELD_LIMITS.successCriteria)),
   status:           GoalStatusSchema,
   cost:             z.number().int().min(1).max(10),
   ddl:              z.string().nullable(),
-  notes:            z.array(z.string()),
+  notes:            z.array(z.string().max(GOAL_FIELD_LIMITS.note, maxLengthMessage('备注', GOAL_FIELD_LIMITS.note))),
 });
 export type GoalDetailFormValues = z.infer<typeof goalDetailSchema>;
 
@@ -45,9 +46,9 @@ export const AttemptSchema = z.object({
 export type Attempt = z.infer<typeof AttemptSchema>;
 
 export const attemptSchema = z.object({
-  hypothesis: z.string().min(1, '假设不能为空'),
-  action:     z.string().min(1, '行动不能为空'),
-  result:     z.string().min(1, '结果不能为空'),
+  hypothesis: z.string().min(1, '假设不能为空').max(ATTEMPT_FIELD_LIMITS.hypothesis, maxLengthMessage('假设', ATTEMPT_FIELD_LIMITS.hypothesis)),
+  action:     z.string().min(1, '行动不能为空').max(ATTEMPT_FIELD_LIMITS.action, maxLengthMessage('行动', ATTEMPT_FIELD_LIMITS.action)),
+  result:     z.string().min(1, '结果不能为空').max(ATTEMPT_FIELD_LIMITS.result, maxLengthMessage('结果', ATTEMPT_FIELD_LIMITS.result)),
   gradient:   z.number().nullable(),
 });
 export type AttemptFormValues = z.infer<typeof attemptSchema>;

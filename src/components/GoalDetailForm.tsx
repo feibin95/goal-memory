@@ -7,6 +7,7 @@ import { goalDetailSchema, type GoalDetailFormValues } from '@/types';
 import type { GoalDetail, GoalSummary } from '@/types';
 import { GOAL_STATUS_LABELS } from '@/lib/constants';
 import { api } from '@/lib/api';
+import { GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS } from '@/lib/core/field-policy';
 import { NotesEditor } from './NotesEditor';
 import { AttemptsTable } from './AttemptsTable';
 
@@ -200,12 +201,15 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
           </div>
           <div className="form-section">
             <h2>背景问题</h2>
-            <textarea {...bgRest} ref={(el) => { bgFormRef(el); bgRef.current = el; }} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
+            <textarea {...bgRest} ref={(el) => { bgFormRef(el); bgRef.current = el; }} maxLength={GOAL_FIELD_LIMITS.background} placeholder={GOAL_FIELD_GUIDANCE.background} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
+            <div className="field-hint">{GOAL_FIELD_GUIDANCE.background}</div>
             {errors.background && <span className="field-error">{errors.background.message}</span>}
           </div>
           <div className="form-section">
             <h2>成功标准</h2>
-            <textarea {...scRest} ref={(el) => { scFormRef(el); scRef.current = el; }} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
+            <textarea {...scRest} ref={(el) => { scFormRef(el); scRef.current = el; }} maxLength={GOAL_FIELD_LIMITS.successCriteria} placeholder={GOAL_FIELD_GUIDANCE.successCriteria} style={{ resize: 'none', overflow: 'hidden', minHeight: '72px' }} />
+            <div className="field-hint">{GOAL_FIELD_GUIDANCE.successCriteria}</div>
+            {errors.success_criteria && <span className="field-error">{errors.success_criteria.message}</span>}
           </div>
           <div className="form-section">
             <div className="field-row">

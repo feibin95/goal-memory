@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { attemptSchema, type AttemptFormValues } from '@/types';
 import type { Attempt } from '@/types';
 import { api } from '@/lib/api';
+import { ATTEMPT_FIELD_GUIDANCE, ATTEMPT_FIELD_LIMITS } from '@/lib/core/field-policy';
 
 interface EditProps {
   attempt: Attempt;
@@ -35,18 +36,18 @@ function AttemptEditForm({ attempt, onSave, onCancel }: EditProps) {
       <div className="attempt-form-row">
         <div className="field-group">
           <label className="field-label">假设 *</label>
-          <input {...form.register('hypothesis')} />
+          <input {...form.register('hypothesis')} maxLength={ATTEMPT_FIELD_LIMITS.hypothesis} placeholder={ATTEMPT_FIELD_GUIDANCE.hypothesis} />
           {form.formState.errors.hypothesis && <span className="field-error">{form.formState.errors.hypothesis.message}</span>}
         </div>
         <div className="field-group">
           <label className="field-label">行动 *</label>
-          <input {...form.register('action')} />
+          <input {...form.register('action')} maxLength={ATTEMPT_FIELD_LIMITS.action} placeholder={ATTEMPT_FIELD_GUIDANCE.action} />
           {form.formState.errors.action && <span className="field-error">{form.formState.errors.action.message}</span>}
         </div>
       </div>
       <div className="field-group">
         <label className="field-label">结果 *</label>
-        <textarea {...form.register('result')} rows={2} />
+        <textarea {...form.register('result')} maxLength={ATTEMPT_FIELD_LIMITS.result} placeholder={ATTEMPT_FIELD_GUIDANCE.result} rows={2} />
         {form.formState.errors.result && <span className="field-error">{form.formState.errors.result.message}</span>}
       </div>
       <div className="field-group">
@@ -132,18 +133,18 @@ export function AttemptsTable({ goalId, attempts, onAttemptAdded }: Props) {
           <div className="attempt-form-row">
             <div className="field-group">
               <label className="field-label">假设 *</label>
-              <input {...form.register('hypothesis')} placeholder="本次尝试预期会怎样" />
+              <input {...form.register('hypothesis')} maxLength={ATTEMPT_FIELD_LIMITS.hypothesis} placeholder={ATTEMPT_FIELD_GUIDANCE.hypothesis} />
               {form.formState.errors.hypothesis && <span className="field-error">{form.formState.errors.hypothesis.message}</span>}
             </div>
             <div className="field-group">
               <label className="field-label">行动 *</label>
-              <input {...form.register('action')} placeholder="实际做了什么" />
+              <input {...form.register('action')} maxLength={ATTEMPT_FIELD_LIMITS.action} placeholder={ATTEMPT_FIELD_GUIDANCE.action} />
               {form.formState.errors.action && <span className="field-error">{form.formState.errors.action.message}</span>}
             </div>
           </div>
           <div className="field-group">
             <label className="field-label">结果 *</label>
-            <textarea {...form.register('result')} placeholder="发生了什么" rows={2} />
+            <textarea {...form.register('result')} maxLength={ATTEMPT_FIELD_LIMITS.result} placeholder={ATTEMPT_FIELD_GUIDANCE.result} rows={2} />
             {form.formState.errors.result && <span className="field-error">{form.formState.errors.result.message}</span>}
           </div>
           <div className="field-group">

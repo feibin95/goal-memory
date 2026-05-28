@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { GoalUtils, validateDdl } from '@/lib/core/models';
 import { saveGoal, loadGoals } from '@/lib/core/store';
 import { filterGoals } from '@/lib/core/scheduler';
+import { GOAL_FIELD_LIMITS, maxLengthMessage } from '@/lib/core/field-policy';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -13,12 +14,12 @@ export async function GET(req: Request) {
 }
 
 const createGoalSchema = z.object({
-  title:            z.string().min(1),
-  background:       z.string().min(1),
+  title:            z.string().min(1).max(GOAL_FIELD_LIMITS.title, maxLengthMessage('标题', GOAL_FIELD_LIMITS.title)),
+  background:       z.string().min(1).max(GOAL_FIELD_LIMITS.background, maxLengthMessage('背景问题', GOAL_FIELD_LIMITS.background)),
   parent_ids:       z.array(z.string()).default([]),
   dependencies:     z.array(z.string()).default([]),
   cost:             z.number().int().default(3),
-  success_criteria: z.string().default(''),
+  success_criteria: z.string().max(GOAL_FIELD_LIMITS.successCriteria, maxLengthMessage('成功标准', GOAL_FIELD_LIMITS.successCriteria)).default(''),
   ddl:              z.string().nullable().default(null),
 });
 

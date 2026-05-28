@@ -1,9 +1,10 @@
 'use client';
 import { useFormContext, useWatch } from 'react-hook-form';
+import { GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS } from '@/lib/core/field-policy';
 import type { GoalDetailFormValues } from '@/types';
 
 export function NotesEditor() {
-  const { register, setValue } = useFormContext<GoalDetailFormValues>();
+  const { formState, register, setValue } = useFormContext<GoalDetailFormValues>();
   const notes = (useWatch<GoalDetailFormValues>({ name: 'notes' }) as string[]) ?? [];
 
   const append = () => setValue('notes', [...notes, '']);
@@ -15,8 +16,9 @@ export function NotesEditor() {
         {notes.map((_note, index) => (
           // eslint-disable-next-line react/no-array-index-key
           <div key={index} className="note-row">
-            <input {...register(`notes.${index}`)} type="text" placeholder="备注内容" />
+            <input {...register(`notes.${index}`)} type="text" maxLength={GOAL_FIELD_LIMITS.note} placeholder={GOAL_FIELD_GUIDANCE.note} />
             <button type="button" className="note-delete-btn" onClick={() => remove(index)} title="删除">×</button>
+            {formState.errors.notes?.[index] && <span className="field-error">{formState.errors.notes[index]?.message}</span>}
           </div>
         ))}
       </div>

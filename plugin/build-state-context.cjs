@@ -121,7 +121,7 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
       '  **注意：调研只基于当前目标上下文。如有必要可查看子目标或兄弟目标，但其他无关目标不应影响调研。**',
       '',
       '**调研完成后判断：能否给出下一步具体动作？**',
-      `  → 不能（目标仍太模糊/太大）→ 用 create_goal 逐一建子目标（title ≤6字，越简洁越好），bind_session 切换到优先级最高的子目标，回到 State 2 重新创建 Attempt（需人工 review 后继续）`,
+      `  → 不能（目标仍太模糊/太大）→ 用 create_goal 逐一建子目标（title ≤6字，background 写当前问题/缺口，不写交付物；success_criteria 写完成标准；均保持短句），bind_session 切换到优先级最高的子目标，回到 State 2 重新创建 Attempt（需人工 review 后继续）`,
       '  → 能 → 继续 [2]',
       '',
       '**[2] 写计划**',

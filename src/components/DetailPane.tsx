@@ -3,6 +3,7 @@ import { useState } from 'react';
 import type { GoalDetail, GoalSummary } from '@/types';
 import { GoalDetailForm } from './GoalDetailForm';
 import { api } from '@/lib/api';
+import { GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS } from '@/lib/core/field-policy';
 function goalLabel(g: GoalSummary, peers: GoalSummary[]): string {
   const hasDup = peers.some(p => p.id !== g.id && p.title === g.title);
   const label = g.title.length > 25 ? g.title.slice(0, 25) + '…' : g.title;
@@ -64,9 +65,9 @@ export function DetailPane({ goal, goals, onRefresh, onClose, onGoalDeleted, onD
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">添加子目标 · {goal.title}</h2>
             <div className="modal-body">
-              <label>标题 *<input type="text" value={addChildForm.title} onChange={(e) => setAddChildForm({ ...addChildForm, title: e.target.value })} required /></label>
-              <label>背景问题 *<textarea rows={3} value={addChildForm.background} onChange={(e) => setAddChildForm({ ...addChildForm, background: e.target.value })} required /></label>
-              <label>成功标准<input type="text" value={addChildForm.success_criteria} onChange={(e) => setAddChildForm({ ...addChildForm, success_criteria: e.target.value })} /></label>
+              <label>标题 *<input type="text" maxLength={GOAL_FIELD_LIMITS.title} value={addChildForm.title} onChange={(e) => setAddChildForm({ ...addChildForm, title: e.target.value })} required /></label>
+              <label>背景问题 *<textarea rows={3} maxLength={GOAL_FIELD_LIMITS.background} placeholder={GOAL_FIELD_GUIDANCE.background} value={addChildForm.background} onChange={(e) => setAddChildForm({ ...addChildForm, background: e.target.value })} required /></label>
+              <label>成功标准<input type="text" maxLength={GOAL_FIELD_LIMITS.successCriteria} placeholder={GOAL_FIELD_GUIDANCE.successCriteria} value={addChildForm.success_criteria} onChange={(e) => setAddChildForm({ ...addChildForm, success_criteria: e.target.value })} /></label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <label>成本<input type="number" min={1} max={10} value={addChildForm.cost} onChange={(e) => setAddChildForm({ ...addChildForm, cost: Number(e.target.value) })} /></label>
                 <label>截止日期<input type="date" value={addChildForm.ddl} onChange={(e) => setAddChildForm({ ...addChildForm, ddl: e.target.value })} /></label>

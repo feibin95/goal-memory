@@ -8,6 +8,7 @@ import { search } from "../src/lib/core/kb.js";
 import { GoalUtils, AttemptUtils, KBEntryUtils } from "../src/lib/core/models.js";
 import { saveSession, getSessionGoal, getSession, setSessionBaseDir, bindAttempt } from "../src/lib/core/session-store.js";
 import { setAttemptFilesBaseDir, createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from "../src/lib/core/attempt-files.js";
+import { ATTEMPT_FIELD_GUIDANCE, ATTEMPT_FIELD_LIMITS, GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS, maxLengthMessage } from "../src/lib/core/field-policy.js";
 import os from "node:os";
 
 setBaseDir(os.homedir());
@@ -80,7 +81,7 @@ server.registerTool(
     inputSchema: {
       goalId: z.string().describe("目标 ID"),
       sessionKey: z.string().describe("会话标识（transcript 文件名，不含 .jsonl）"),
-      hypothesis: z.string().optional().describe("本次执行的初始假设（可选）"),
+      hypothesis: z.string().max(ATTEMPT_FIELD_LIMITS.hypothesis, maxLengthMessage("假设", ATTEMPT_FIELD_LIMITS.hypothesis)).optional().describe(`本次执行的初始假设（可选）。${ATTEMPT_FIELD_GUIDANCE.hypothesis}`),
       existingAttemptId: z.string().optional().describe("若要恢复已有 Attempt，传入其 ID（可选）"),
     },
   },
@@ -125,8 +126,8 @@ server.registerTool(
     inputSchema: {
       attemptId: z.string().describe("Attempt ID"),
       status: z.enum(["active", "completed"]).optional().describe("新状态（设为 completed 即完成）"),
-      action: z.string().optional().describe("实际执行了什么"),
-      result: z.string().optional().describe("观察到的结果"),
+      action: z.string().max(ATTEMPT_FIELD_LIMITS.action, maxLengthMessage("行动", ATTEMPT_FIELD_LIMITS.action)).optional().describe(`实际执行了什么。${ATTEMPT_FIELD_GUIDANCE.action}`),
+      result: z.string().max(ATTEMPT_FIELD_LIMITS.result, maxLengthMessage("结果", ATTEMPT_FIELD_LIMITS.result)).optional().describe(`观察到的结果。${ATTEMPT_FIELD_GUIDANCE.result}`),
       gradient: z.number().nullable().optional().describe("进展评分（-1 到 +1，可选）"),
     },
   },
@@ -198,13 +199,13 @@ server.registerTool(
   {
     description: "创建新目标",
     inputSchema: {
-      title: z.string().max(6, "目标标题不能超过 6 个字").describe("目标标题（≤6字，越简洁越好）"),
-      background: z.string().describe("为什么要做这个目标（背景/动机）"),
+      title: z.string().max(GOAL_FIELD_LIMITS.title, maxLengthMessage("目标标题", GOAL_FIELD_LIMITS.title)).describe(GOAL_FIELD_GUIDANCE.title),
+      background: z.string().max(GOAL_FIELD_LIMITS.background, maxLengthMessage("背景问题", GOAL_FIELD_LIMITS.background)).describe(`背景问题。${GOAL_FIELD_GUIDANCE.background}`),
       parent_ids: z.array(z.string()).optional().describe("父目标 ID 列表（可选）"),
       dependencies: z.array(z.string()).optional().describe("本目标的阻塞项（blocked by）：执行前必须完成的目标 ID 列表（可选）"),
       cost: z.number().int().min(1).max(10).optional().describe("执行成本 1-10（默认 3）"),
       ddl: z.string().nullable().optional().describe("截止日期 YYYY-MM-DD（可选）"),
-      success_criteria: z.string().optional().describe("成功标准（可选）"),
+      success_criteria: z.string().max(GOAL_FIELD_LIMITS.successCriteria, maxLengthMessage("成功标准", GOAL_FIELD_LIMITS.successCriteria)).optional().describe(`成功标准（可选）。${GOAL_FIELD_GUIDANCE.successCriteria}`),
     },
   },
   async ({ title, background, parent_ids, dependencies, cost, ddl, success_criteria }) => {
@@ -227,13 +228,13 @@ server.registerTool(
     description: "更新目标的字段（只传需要修改的字段）",
     inputSchema: {
       goalId: z.string().describe("目标 ID"),
-      title: z.string().optional(),
-      background: z.string().optional(),
+      title: z.string().max(GOAL_FIELD_LIMITS.title, maxLengthMessage("目标标题", GOAL_FIELD_LIMITS.title)).optional().describe(GOAL_FIELD_GUIDANCE.title),
+      background: z.string().max(GOAL_FIELD_LIMITS.background, maxLengthMessage("背景问题", GOAL_FIELD_LIMITS.background)).optional().describe(`背景问题。${GOAL_FIELD_GUIDANCE.background}`),
       status: z.enum(["ready", "in_progress", "done"]).optional(),
       cost: z.number().int().min(1).max(10).optional(),
       ddl: z.string().nullable().optional().describe("截止日期 YYYY-MM-DD，传 null 清除"),
-      success_criteria: z.string().optional(),
-      note: z.string().optional().describe("追加一条备注"),
+      success_criteria: z.string().max(GOAL_FIELD_LIMITS.successCriteria, maxLengthMessage("成功标准", GOAL_FIELD_LIMITS.successCriteria)).optional().describe(`成功标准。${GOAL_FIELD_GUIDANCE.successCriteria}`),
+      note: z.string().max(GOAL_FIELD_LIMITS.note, maxLengthMessage("备注", GOAL_FIELD_LIMITS.note)).optional().describe(`追加一条备注。${GOAL_FIELD_GUIDANCE.note}`),
       clearNotes: z.boolean().optional().describe("清空所有备注"),
       addBlockedBy: z.array(z.string()).optional().describe("追加阻塞项：本目标执行前必须完成的目标 ID 列表"),
       removeBlockedBy: z.array(z.string()).optional().describe("移除阻塞项：解除对指定目标 ID 的依赖"),

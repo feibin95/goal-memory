@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { getGoal, saveAttempt, loadAttempts, getAvailableAttempts, nextAttemptSeq } from '@/lib/core/store';
 import { AttemptUtils } from '@/lib/core/models';
 import { createAttemptFiles, buildAttemptDirName } from '@/lib/core/attempt-files';
+import { ATTEMPT_FIELD_LIMITS, maxLengthMessage } from '@/lib/core/field-policy';
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
 
 const createAttemptSchema = z.object({
   goalId:     z.string().min(1),
-  hypothesis: z.string().optional().default(''),
+  hypothesis: z.string().max(ATTEMPT_FIELD_LIMITS.hypothesis, maxLengthMessage('假设', ATTEMPT_FIELD_LIMITS.hypothesis)).optional().default(''),
 });
 
 export async function POST(req: Request) {

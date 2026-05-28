@@ -2,12 +2,13 @@ import { z } from 'zod';
 import { NextResponse } from 'next/server';
 import { getAttemptById, updateAttempt, deleteAttempt } from '@/lib/core/store';
 import { formatAttemptFilesForContext } from '@/lib/core/attempt-files';
+import { ATTEMPT_FIELD_LIMITS, maxLengthMessage } from '@/lib/core/field-policy';
 
 const updateAttemptSchema = z.object({
   status:     z.enum(['active', 'completed']).optional(),
-  hypothesis: z.string().min(1).optional(),
-  action:     z.string().min(1).optional(),
-  result:     z.string().min(1).optional(),
+  hypothesis: z.string().min(1).max(ATTEMPT_FIELD_LIMITS.hypothesis, maxLengthMessage('假设', ATTEMPT_FIELD_LIMITS.hypothesis)).optional(),
+  action:     z.string().min(1).max(ATTEMPT_FIELD_LIMITS.action, maxLengthMessage('行动', ATTEMPT_FIELD_LIMITS.action)).optional(),
+  result:     z.string().min(1).max(ATTEMPT_FIELD_LIMITS.result, maxLengthMessage('结果', ATTEMPT_FIELD_LIMITS.result)).optional(),
   gradient:   z.number().nullable().optional(),
 });
 

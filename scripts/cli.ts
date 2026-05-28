@@ -6,6 +6,7 @@ import { buildContextPack } from '../src/lib/core/context';
 import { addEntry, search } from '../src/lib/core/kb';
 import { getSessionGoal, saveSession, getSession, bindAttempt, releaseAttempt } from '../src/lib/core/session-store';
 import { createAttemptFiles, formatAttemptFilesForContext, buildAttemptDirName } from '../src/lib/core/attempt-files';
+import { ATTEMPT_FIELD_GUIDANCE, ATTEMPT_FIELD_LIMITS, GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS, validateMaxLengths } from '../src/lib/core/field-policy';
 
 function nowIso() { return new Date().toISOString(); }
 function requireGoal(id: string) {
@@ -13,19 +14,30 @@ function requireGoal(id: string) {
   if (!g) { console.error('Error: goal ' + id + ' not found.'); process.exit(1); }
   return g!;
 }
+function failIfInvalid(errors: string[]) {
+  if (!errors.length) return;
+  for (const err of errors) console.error('Error: ' + err);
+  process.exit(1);
+}
 
 const program = new Command();
 program.name('goalmem').description('Goal memory runtime CLI').version('1.0.0');
 
 program.command('create').description('Create a goal (omit --parent for a root goal)')
-  .requiredOption('--title <title>').requiredOption('--background <background>')
+  .requiredOption('--title <title>', GOAL_FIELD_GUIDANCE.title)
+  .requiredOption('--background <background>', GOAL_FIELD_GUIDANCE.background)
   .option('--parent <goalId>', 'Parent goal ID (omit to create a root goal)')
-  .option('--success-criteria <criteria>', '', '').option('--cost <n>', '', '3')
+  .option('--success-criteria <criteria>', GOAL_FIELD_GUIDANCE.successCriteria, '').option('--cost <n>', '', '3')
   .option('--deps <ids>', 'Comma-separated dependency goal IDs', '')
   .option('--ddl <date>')
   .action((opts) => {
     const parentIds = opts.parent ? [requireGoal(opts.parent).id] : [];
     const deps = opts.deps ? opts.deps.split(',').map((s: string) => s.trim()).filter(Boolean) : [];
+    failIfInvalid(validateMaxLengths([
+      { label: '标题', value: opts.title, max: GOAL_FIELD_LIMITS.title },
+      { label: '背景问题', value: opts.background, max: GOAL_FIELD_LIMITS.background },
+      { label: '成功标准', value: opts.successCriteria, max: GOAL_FIELD_LIMITS.successCriteria },
+    ]));
     const draft = GoalUtils.create(opts.title, opts.background, { parentIds, dependencies: deps, cost: parseInt(opts.cost), successCriteria: opts.successCriteria, ddl: opts.ddl ?? null });
     draft.status = 'ready';
     if (parentIds.length > 0) {
@@ -37,15 +49,19 @@ program.command('create').description('Create a goal (omit --parent for a root g
   });
 
 program.command('update <goalId>').description('Update goal fields')
-  .option('--title <title>').option('--background <background>').option('--status <status>')
+  .option('--title <title>', GOAL_FIELD_GUIDANCE.title)
+  .option('--background <background>', GOAL_FIELD_GUIDANCE.background)
+  .option('--success-criteria <criteria>', GOAL_FIELD_GUIDANCE.successCriteria)
+  .option('--status <status>')
   .option('--cost <n>')
-  .option('--note <text>').option('--clear-notes', 'remove all notes')
+  .option('--note <text>', GOAL_FIELD_GUIDANCE.note).option('--clear-notes', 'remove all notes')
   .option('--add-deps <ids>', 'comma-separated IDs to add as dependencies')
   .option('--remove-deps <ids>', 'comma-separated IDs to remove from dependencies')
   .action((goalId, opts) => {
     const goal = requireGoal(goalId);
     if (opts.title !== undefined) goal.title = opts.title;
     if (opts.background !== undefined) goal.background = opts.background;
+    if (opts.successCriteria !== undefined) goal.success_criteria = opts.successCriteria;
     if (opts.status !== undefined) goal.status = opts.status;
     if (opts.cost !== undefined) goal.cost = parseInt(opts.cost);
     if (opts.clearNotes) goal.notes = [];
@@ -58,6 +74,12 @@ program.command('update <goalId>').description('Update goal fields')
       const ids = new Set(opts.removeDeps.split(',').map((s: string) => s.trim()).filter(Boolean));
       goal.dependencies = goal.dependencies.filter((id: string) => !ids.has(id));
     }
+    failIfInvalid(validateMaxLengths([
+      { label: '标题', value: opts.title, max: GOAL_FIELD_LIMITS.title },
+      { label: '背景问题', value: opts.background, max: GOAL_FIELD_LIMITS.background },
+      { label: '成功标准', value: opts.successCriteria, max: GOAL_FIELD_LIMITS.successCriteria },
+      { label: '备注', value: opts.note, max: GOAL_FIELD_LIMITS.note },
+    ]));
     goal.updated_at = nowIso();
     saveGoal(goal);
     console.log('Goal [' + goal.id + '] updated. dependencies: [' + goal.dependencies.join(', ') + ']');
@@ -151,9 +173,12 @@ program.command('context <goalId>').description('Generate context pack')
 const attempt = program.command('attempt').description('Manage execution attempts');
 
 attempt.command('create <goalId>').description('Create an active attempt with planning files')
-  .option('--hypothesis <text>', 'Initial hypothesis', '')
+  .option('--hypothesis <text>', ATTEMPT_FIELD_GUIDANCE.hypothesis, '')
   .action((goalId, opts) => {
     const goal = requireGoal(goalId);
+    failIfInvalid(validateMaxLengths([
+      { label: '假设', value: opts.hypothesis, max: ATTEMPT_FIELD_LIMITS.hypothesis },
+    ]));
     const seq = nextAttemptSeq(goal.id);
     const dirName = buildAttemptDirName(goal.title, seq);
     const filesDir = createAttemptFiles(dirName, goal);
@@ -164,8 +189,14 @@ attempt.command('create <goalId>').description('Create an active attempt with pl
 
 attempt.command('update <attemptId>').description('Update attempt fields (set --status completed to finish)')
   .option('--status <status>', 'New status: active | completed')
-  .option('--action <text>').option('--result <text>').option('--gradient <number>')
+  .option('--action <text>', ATTEMPT_FIELD_GUIDANCE.action)
+  .option('--result <text>', ATTEMPT_FIELD_GUIDANCE.result)
+  .option('--gradient <number>')
   .action((attemptId, opts) => {
+    failIfInvalid(validateMaxLengths([
+      { label: '行动', value: opts.action, max: ATTEMPT_FIELD_LIMITS.action },
+      { label: '结果', value: opts.result, max: ATTEMPT_FIELD_LIMITS.result },
+    ]));
     const patch: Record<string, unknown> = {};
     if (opts.status !== undefined) patch.status = opts.status;
     if (opts.action !== undefined) patch.action = opts.action;

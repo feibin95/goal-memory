@@ -1,6 +1,23 @@
 import type { AppState, Goal, GoalDetail, Attempt } from '@/types';
 import type { GoalDetailFormValues, AttemptFormValues } from '@/types';
 
+function formatApiError(body: unknown, fallback: string): string {
+  const error = (body as { error?: unknown })?.error;
+  if (typeof error === 'string') return error;
+  if (error && typeof error === 'object') {
+    const fieldErrors = (error as { fieldErrors?: Record<string, string[]> }).fieldErrors;
+    if (fieldErrors) {
+      const messages = Object.entries(fieldErrors).flatMap(([field, values]) =>
+        values.map((message) => `${field}: ${message}`)
+      );
+      if (messages.length) return messages.join('\n');
+    }
+    const formErrors = (error as { formErrors?: string[] }).formErrors;
+    if (formErrors?.length) return formErrors.join('\n');
+  }
+  return fallback;
+}
+
 async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   const res = await fetch(path, {
     headers: { 'Content-Type': 'application/json', ...(options.headers as Record<string, string> || {}) },
@@ -8,7 +25,7 @@ async function req<T>(path: string, options: RequestInit = {}): Promise<T> {
   });
   if (!res.ok) {
     const body = await res.json().catch(() => ({}));
-    throw new Error((body as { error?: string }).error || res.statusText);
+    throw new Error(formatApiError(body, res.statusText));
   }
   return res.json() as Promise<T>;
 }

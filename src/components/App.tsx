@@ -4,6 +4,7 @@ import { GraphPane } from './GraphPane';
 import { DetailPane } from './DetailPane';
 import { ToastProvider } from './Toast';
 import { api } from '@/lib/api';
+import { GOAL_FIELD_GUIDANCE, GOAL_FIELD_LIMITS } from '@/lib/core/field-policy';
 import type { AppState, GoalDetail } from '@/types';
 
 interface NewRootForm {
@@ -129,9 +130,9 @@ export default function App() {
           <div className="modal" onClick={(e) => e.stopPropagation()}>
             <h2 className="modal-title">新建根目标</h2>
             <div className="modal-body">
-              <label>标题 *<input type="text" value={newRootForm.title} onChange={(e) => setNewRootForm({ ...newRootForm, title: e.target.value })} required /></label>
-              <label>背景问题 *<textarea rows={3} value={newRootForm.background} onChange={(e) => setNewRootForm({ ...newRootForm, background: e.target.value })} required /></label>
-              <label>成功标准<input type="text" value={newRootForm.success_criteria} onChange={(e) => setNewRootForm({ ...newRootForm, success_criteria: e.target.value })} /></label>
+              <label>标题 *<input type="text" maxLength={GOAL_FIELD_LIMITS.title} value={newRootForm.title} onChange={(e) => setNewRootForm({ ...newRootForm, title: e.target.value })} required /></label>
+              <label>背景问题 *<textarea rows={3} maxLength={GOAL_FIELD_LIMITS.background} placeholder={GOAL_FIELD_GUIDANCE.background} value={newRootForm.background} onChange={(e) => setNewRootForm({ ...newRootForm, background: e.target.value })} required /></label>
+              <label>成功标准<input type="text" maxLength={GOAL_FIELD_LIMITS.successCriteria} placeholder={GOAL_FIELD_GUIDANCE.successCriteria} value={newRootForm.success_criteria} onChange={(e) => setNewRootForm({ ...newRootForm, success_criteria: e.target.value })} /></label>
               <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
                 <label>成本<input type="number" min={1} max={10} value={newRootForm.cost} onChange={(e) => setNewRootForm({ ...newRootForm, cost: Number(e.target.value) })} /></label>
                 <label>截止日期<input type="date" value={newRootForm.ddl} onChange={(e) => setNewRootForm({ ...newRootForm, ddl: e.target.value })} /></label>
