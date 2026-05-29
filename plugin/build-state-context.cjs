@@ -51,8 +51,9 @@ function fetchAttemptFiles(attemptId) {
 
 function renderState1(sessionKey) {
   return [
-    '[GoalMem] 当前会话尚未绑定目标，请告知要执行的目标名称。',
-    `如需临时会话：bind_session(sessionKey="${sessionKey}", goalId="NONE")`,
+    '[GoalMem] ⚠️ 会话未绑定目标。执行用户任务前必须先完成绑定：',
+    `  bind_session(sessionKey="${sessionKey}", goalId="<目标ID>")   // 先调用 list_goals 查看可用目标`,
+    `  bind_session(sessionKey="${sessionKey}", goalId="NONE")       // 临时会话（进度不记录）`,
   ].join('\n');
 }
 
