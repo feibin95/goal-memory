@@ -48,6 +48,9 @@ export default function App() {
       setSelectedGoal(goal);
     } catch (e) {
       console.error('loadSelectedGoal failed:', e);
+      setSelectedId(null);
+      setSelectedGoal(null);
+      loadState();
     }
   };
 
