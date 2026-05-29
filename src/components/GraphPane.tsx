@@ -154,7 +154,7 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
     const cues: CuePos[] = cy.nodes(':visible').toArray()
       .filter(n => childrenOf[n.data('id') as string])
       .map(n => {
-        const bb = n.renderedBoundingBox({});
+        const bb = n.renderedBoundingBox({ includeLabels: false, includeOverlays: false });
         return { id: n.data('id') as string, x: (bb.x1 + bb.x2) / 2, y: bb.y2, collapsed: currentCollapsed.has(n.data('id') as string) };
       });
     setCuePositions(cues);
@@ -166,6 +166,11 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
     cy.on('tap', 'node', (evt) => onSelectRef.current(evt.target.data('id')));
     cy.on('tap', (evt) => { if (evt.target === cy) onClickBackgroundRef.current?.(); });
     cy.on('layoutstop viewport', updateCues);
+    let rafId: number | null = null;
+    cy.on('drag', 'node', () => {
+      if (rafId !== null) return;
+      rafId = requestAnimationFrame(() => { rafId = null; updateCues(); });
+    });
     const ro = new ResizeObserver(() => { cy.resize(); updateCues(); });
     ro.observe(containerRef.current);
     cyRef.current = cy;
