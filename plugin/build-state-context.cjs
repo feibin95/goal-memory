@@ -106,7 +106,7 @@ function detectAttemptPhase(files) {
   return 'research_planning';
 }
 
-function renderState3(sessionKey, goalId, attemptId, context, files) {
+function renderState3(sessionKey, goalId, attemptId, context, files, compact = false) {
   const phase = detectAttemptPhase(files);
 
   const header = [
@@ -117,6 +117,12 @@ function renderState3(sessionKey, goalId, attemptId, context, files) {
     '',
     '---',
   ];
+
+  // compact 模式：只保留目标摘要 + attempt 文件路径，不包含执行引导文本。
+  // 适用于 PostToolUse 周期注入——模型已在首次注入时看过引导，无需重复。
+  if (compact) {
+    return header.filter(s => s !== null).join('\n');
+  }
 
   let guidance;
   if (phase === 'research_planning') {
@@ -173,7 +179,7 @@ function buildStateContext(sessionKey, compact = false) {
   }
 
   const files = fetchAttemptFiles(attemptId);
-  return renderState3(sessionKey, goalId, attemptId, context, files);
+  return renderState3(sessionKey, goalId, attemptId, context, files, compact);
 }
 
 function getSessionKey(transcriptPath) {
