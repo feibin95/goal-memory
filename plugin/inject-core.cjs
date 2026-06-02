@@ -193,11 +193,28 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
   }
 
   if (eventName === 'UserPromptSubmit') {
-    // 单进程触发，无并发问题，保留计数器节流（每 5 次注入一次）
-    if (!throttleByCounter(path.join(os.tmpdir(), `${counterPrefix}prompt-${sessionKey}`), 5)) {
-      return 'throttled';
+    // 使用 lockfile + 冷却窗口，防止全局/项目两套 hook 并发触发时重复注入（连击问题）。
+    // 冷却窗口 1s（比 PostToolUse 的 3s 短）：同一 prompt 并发 hook 几乎同时触发，
+    // 而用户连续快速提问仍应各自拿到上下文。
+    const lockFile = path.join(os.tmpdir(), `${counterPrefix}prompt-lock-${sessionKey}`);
+    const PROMPT_COOLDOWN_MS = 1000;
+    let fd;
+    try {
+      fd = fs.openSync(lockFile, 'wx');
+    } catch (_) {
+      try {
+        const age = Date.now() - fs.statSync(lockFile).mtimeMs;
+        if (age < PROMPT_COOLDOWN_MS) return 'cooldown-skipped';
+        fs.unlinkSync(lockFile);
+        fd = fs.openSync(lockFile, 'wx');
+      } catch (_) { return 'race-skipped'; }
     }
-    return doEmit();
+    try {
+      return doEmit();
+    } finally {
+      fs.closeSync(fd);
+      setTimeout(() => { try { fs.unlinkSync(lockFile); } catch (_) {} }, PROMPT_COOLDOWN_MS).unref();
+    }
   }
 
   if (eventName === 'PostToolUse') {

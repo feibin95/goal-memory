@@ -97,6 +97,7 @@ export function buildContextPack(goalId: string, opts: { compact?: boolean } = {
         lines.push(`### 尝试${a.gradient != null ? `（梯度: ${a.gradient}）` : ''}`);
         lines.push(`- **假设:** ${a.hypothesis}`, `- **行动:** ${a.action}`, `- **结果:** ${a.result}`);
       }
+      lines.push('', '_新 Attempt 请勿重复以上路径。_');
     }
   } else { lines.push('_暂无尝试记录。_'); }
   lines.push('');
