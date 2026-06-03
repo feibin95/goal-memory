@@ -1,8 +1,23 @@
 #!/usr/bin/env node
 'use strict';
 
+const fs   = require('fs');
+const os   = require('os');
 const path = require('path');
 const { execFileSync } = require('child_process');
+
+// ─── Debug 日志 ────────────────────────────────────────────────────────────────
+
+const DEBUG = process.env.GOALMEM_HOOK_DEBUG !== '0'; // 默认开启，设 GOALMEM_HOOK_DEBUG=0 可关闭
+const DEBUG_FILE = path.join(os.homedir(), '.codex', 'goalmem-hook-debug.jsonl');
+
+function debugLog(record) {
+  if (!DEBUG) return;
+  try {
+    fs.appendFileSync(DEBUG_FILE,
+      JSON.stringify({ ts: new Date().toISOString(), ...record }).slice(0, 8000) + '\n');
+  } catch (_) {}
+}
 
 // ─── CLI 工具 ──────────────────────────────────────────────────────────────────
 
@@ -13,12 +28,29 @@ const PROJECT_ROOT = PLUGIN_ROOT
 const TSX = path.join(PROJECT_ROOT, 'node_modules/.bin/tsx');
 const CLI = path.join(PROJECT_ROOT, 'scripts/cli.ts');
 
+// 找一个能正常运行 tsx 的 node（跳过 nix 环境注入的 node）
+function resolveNode() {
+  const candidates = [
+    '/opt/homebrew/bin/node',
+    '/usr/local/bin/node',
+    process.execPath,  // 运行本 hook 的 node，兜底
+  ];
+  for (const p of candidates) {
+    try { fs.accessSync(p, fs.constants.X_OK); return p; } catch (_) {}
+  }
+  return 'node'; // 最终兜底
+}
+const NODE = resolveNode();
+
 function cli(args) {
-  return execFileSync(TSX, [CLI, ...args], { cwd: PROJECT_ROOT }).toString().trim();
+  return execFileSync(NODE, [TSX, CLI, ...args], { cwd: PROJECT_ROOT }).toString().trim();
 }
 
 function cliJson(args, fallback) {
-  try { return JSON.parse(cli(args)); } catch (_) { return fallback; }
+  try { return JSON.parse(cli(args)); } catch (e) {
+    debugLog({ src: 'build-state', fn: 'cliJson', args, error: String(e) });
+    return fallback;
+  }
 }
 
 function cliText(args) {
@@ -162,23 +194,35 @@ function renderState3(sessionKey, goalId, attemptId, context, files, compact = f
 // ─── 主调度器 ──────────────────────────────────────────────────────────────────
 
 function buildStateContext(sessionKey, compact = false) {
-  const { goal_id: goalId, attempt_id: attemptId } = fetchSession(sessionKey);
+  const session = fetchSession(sessionKey);
+  const { goal_id: goalId, attempt_id: attemptId } = session;
+
+  debugLog({ src: 'build-state', sessionKey, compact, sessionRaw: session, goalId, attemptId });
 
   if (!goalId) {
+    debugLog({ src: 'build-state', renderedState: 1, reason: 'no-goal-id' });
     return renderState1(sessionKey);
   }
 
-  if (goalId === 'NONE') return null;
+  if (goalId === 'NONE') {
+    debugLog({ src: 'build-state', renderedState: 'null', reason: 'NONE' });
+    return null;
+  }
 
   const context = fetchContext(goalId, compact);
-  if (!context) return null;
+  if (!context) {
+    debugLog({ src: 'build-state', renderedState: 'null', reason: 'no-context', goalId });
+    return null;
+  }
 
   if (!attemptId) {
     const available = fetchAvailableAttempts(goalId);
+    debugLog({ src: 'build-state', renderedState: 2, goalId, availableCount: available.length });
     return renderState2(sessionKey, goalId, context, available);
   }
 
   const files = fetchAttemptFiles(attemptId);
+  debugLog({ src: 'build-state', renderedState: 3, goalId, attemptId });
   return renderState3(sessionKey, goalId, attemptId, context, files, compact);
 }
 

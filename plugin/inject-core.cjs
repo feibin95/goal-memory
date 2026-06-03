@@ -4,6 +4,17 @@ const fs = require('fs');
 const os = require('os');
 const path = require('path');
 
+const DEBUG = process.env.GOALMEM_HOOK_DEBUG !== '0'; // 默认开启，设 GOALMEM_HOOK_DEBUG=0 可关闭
+const DEBUG_FILE = path.join(os.homedir(), '.codex', 'goalmem-hook-debug.jsonl');
+
+function debugLog(record) {
+  if (!DEBUG) return;
+  try {
+    fs.appendFileSync(DEBUG_FILE,
+      JSON.stringify({ ts: new Date().toISOString(), ...record }).slice(0, 8000) + '\n');
+  } catch (_) {}
+}
+
 const STATE_CHANGING_TOOLS = new Set([
   'bind_session',   // 改变绑定目标 → 立即更新
   'create_attempt', // 切换到执行态 → 立即更新
@@ -178,6 +189,10 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
   const isStateChange = STATE_CHANGING_TOOLS.has(toolName) && eventName === 'PostToolUse';
   const compact = !isStateChange;
 
+  debugLog({ src: 'inject-core', phase: 'enter', event: eventName, sessionKey,
+    toolRaw: String(payload.tool_name || payload.tool || payload.name || ''),
+    toolShort: toolName, isStateChange });
+
   function doEmit() {
     const { buildStateContext } = require('./build-state-context.cjs');
     const context = buildStateContext(sessionKey, compact);
@@ -192,6 +207,8 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
     return 'emitted';
   }
 
+  let decision;
+
   if (eventName === 'UserPromptSubmit') {
     // 使用 lockfile + 冷却窗口，防止全局/项目两套 hook 并发触发时重复注入（连击问题）。
     // 冷却窗口 1s（比 PostToolUse 的 3s 短）：同一 prompt 并发 hook 几乎同时触发，
@@ -204,14 +221,16 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
     } catch (_) {
       try {
         const age = Date.now() - fs.statSync(lockFile).mtimeMs;
-        if (age < PROMPT_COOLDOWN_MS) return 'cooldown-skipped';
+        if (age < PROMPT_COOLDOWN_MS) { decision = 'cooldown-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
         fs.unlinkSync(lockFile);
         fd = fs.openSync(lockFile, 'wx');
-      } catch (_) { return 'race-skipped'; }
+      } catch (_) { decision = 'race-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
     }
     try {
-      return doEmit();
+      decision = doEmit();
+      return decision;
     } finally {
+      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision });
       fs.closeSync(fd);
       setTimeout(() => { try { fs.unlinkSync(lockFile); } catch (_) {} }, PROMPT_COOLDOWN_MS).unref();
     }
@@ -221,22 +240,27 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
     if (STATE_CHANGING_TOOLS.has(toolName)) {
       // 状态变化工具：不受次数限制，只受 3s 冷却（防并行竞态 + 同 turn 内连续触发）
       const lockFile = path.join(os.tmpdir(), `${counterPrefix}lock-${sessionKey}`);
-      const result = withInjectLockAndCooldown(lockFile, doEmit);
-      if (result === 'emitted') {
+      decision = withInjectLockAndCooldown(lockFile, doEmit);
+      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'state-change-lockfile', decision });
+      if (decision === 'emitted') {
         // 刚注入过完整上下文，重置周期计数，避免紧接着又触发普通工具的周期注入
         const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
         try { fs.writeFileSync(counterFile, JSON.stringify({ count: 0, lastTs: Date.now() })); } catch (_) {}
       }
-      return result;
+      return decision;
     } else {
       // 普通工具：次数 >= 20 AND 距上次注入 >= 3s，两个条件同时满足才注入
       const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
-      return withCountAndTimeLock(counterFile, doEmit);
+      decision = withCountAndTimeLock(counterFile, doEmit);
+      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'periodic-count-time', decision });
+      return decision;
     }
   }
 
   // 其他事件（当前无配置，预留直接注入）
-  return doEmit();
+  decision = doEmit();
+  debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'other', decision });
+  return decision;
 }
 
 module.exports = { STATE_CHANGING_TOOLS, shouldInjectThrottled, throttleByCounter, withInjectLockAndCooldown, withCountAndTimeLock, readStdinJson, toolShortName, injectIfNeeded };
