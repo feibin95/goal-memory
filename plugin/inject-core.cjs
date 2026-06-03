@@ -115,7 +115,7 @@ function withInjectLockAndCooldown(lockFile, fn) {
  * @param {Function} fn - 执行注入的回调
  * @returns {string} 'emitted' | 'no-context' | 'throttled' | 'mutex-busy'
  */
-const PERIODIC_MIN_CALLS = 20;
+const PERIODIC_MIN_CALLS = 40;
 
 function withCountAndTimeLock(counterFile, fn) {
   const lockFile = counterFile + '.lock';
