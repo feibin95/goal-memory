@@ -230,15 +230,14 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
       } catch (_) { decision = 'race-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
     }
     try {
-      // 读计数，首次(count=0)或每5次注入
+      // count % INTERVAL === 1 时注入：首次(count=1)必注入，之后每5次注入一次
       let count = 0;
       try { count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0; } catch (_) {}
       count += 1;
-      if (count === 1 || count >= PROMPT_INJECT_INTERVAL) {
-        fs.writeFileSync(counterFile, '1');
+      fs.writeFileSync(counterFile, String(count));
+      if (count % PROMPT_INJECT_INTERVAL === 1) {
         decision = doEmit();
       } else {
-        fs.writeFileSync(counterFile, String(count));
         decision = 'throttled';
       }
       return decision;
