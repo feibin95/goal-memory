@@ -210,11 +210,14 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
   let decision;
 
   if (eventName === 'UserPromptSubmit') {
-    // 使用 lockfile + 冷却窗口，防止全局/项目两套 hook 并发触发时重复注入（连击问题）。
-    // 冷却窗口 1s（比 PostToolUse 的 3s 短）：同一 prompt 并发 hook 几乎同时触发，
-    // 而用户连续快速提问仍应各自拿到上下文。
-    const lockFile = path.join(os.tmpdir(), `${counterPrefix}prompt-lock-${sessionKey}`);
+    // 每 5 次提问注入一次，首次必注入。
+    // 用 lockfile 防止全局/项目两套 hook 并发重复注入（同一 prompt 两个 hook 几乎同时触发）。
+    const PROMPT_INJECT_INTERVAL = 5;
     const PROMPT_COOLDOWN_MS = 1000;
+    const lockFile = path.join(os.tmpdir(), `${counterPrefix}prompt-lock-${sessionKey}`);
+    const counterFile = path.join(os.tmpdir(), `${counterPrefix}prompt-count-${sessionKey}`);
+
+    // 先用 lockfile 抢占，防并发重复
     let fd;
     try {
       fd = fs.openSync(lockFile, 'wx');
@@ -227,7 +230,17 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
       } catch (_) { decision = 'race-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
     }
     try {
-      decision = doEmit();
+      // 读计数，首次(count=0)或每5次注入
+      let count = 0;
+      try { count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0; } catch (_) {}
+      count += 1;
+      if (count === 1 || count >= PROMPT_INJECT_INTERVAL) {
+        fs.writeFileSync(counterFile, '1');
+        decision = doEmit();
+      } else {
+        fs.writeFileSync(counterFile, String(count));
+        decision = 'throttled';
+      }
       return decision;
     } finally {
       debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision });
