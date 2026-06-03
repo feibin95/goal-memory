@@ -209,70 +209,56 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
 
   let decision;
 
-  if (eventName === 'UserPromptSubmit') {
-    // 每 5 次提问注入一次，首次必注入。
-    // 用 lockfile 防止全局/项目两套 hook 并发重复注入（同一 prompt 两个 hook 几乎同时触发）。
-    const PROMPT_INJECT_INTERVAL = 5;
-    const PROMPT_COOLDOWN_MS = 1000;
-    const lockFile = path.join(os.tmpdir(), `${counterPrefix}prompt-lock-${sessionKey}`);
-    const counterFile = path.join(os.tmpdir(), `${counterPrefix}prompt-count-${sessionKey}`);
-
-    // 先用 lockfile 抢占，防并发重复
-    let fd;
-    try {
-      fd = fs.openSync(lockFile, 'wx');
-    } catch (_) {
-      try {
-        const age = Date.now() - fs.statSync(lockFile).mtimeMs;
-        if (age < PROMPT_COOLDOWN_MS) { decision = 'cooldown-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
-        fs.unlinkSync(lockFile);
-        fd = fs.openSync(lockFile, 'wx');
-      } catch (_) { decision = 'race-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
-    }
-    try {
-      // count % INTERVAL === 1 时注入：首次(count=1)必注入，之后每5次注入一次
-      let count = 0;
-      try { count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0; } catch (_) {}
-      count += 1;
-      fs.writeFileSync(counterFile, String(count));
-      if (count % PROMPT_INJECT_INTERVAL === 1) {
-        decision = doEmit();
-      } else {
-        decision = 'throttled';
-      }
-      return decision;
-    } finally {
-      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision });
-      fs.closeSync(fd);
-      setTimeout(() => { try { fs.unlinkSync(lockFile); } catch (_) {} }, PROMPT_COOLDOWN_MS).unref();
-    }
-  }
-
-  if (eventName === 'PostToolUse') {
-    if (STATE_CHANGING_TOOLS.has(toolName)) {
-      // 状态变化工具：不受次数限制，只受 3s 冷却（防并行竞态 + 同 turn 内连续触发）
-      const lockFile = path.join(os.tmpdir(), `${counterPrefix}lock-${sessionKey}`);
-      decision = withInjectLockAndCooldown(lockFile, doEmit);
-      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'state-change-lockfile', decision });
-      if (decision === 'emitted') {
-        // 刚注入过完整上下文，重置周期计数，避免紧接着又触发普通工具的周期注入
-        const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
-        try { fs.writeFileSync(counterFile, JSON.stringify({ count: 0, lastTs: Date.now() })); } catch (_) {}
-      }
-      return decision;
-    } else {
-      // 普通工具：次数 >= 20 AND 距上次注入 >= 3s，两个条件同时满足才注入
+  // 状态变化工具（bind_session / create_attempt / update_attempt）：
+  // 不走计数，直接注入，只受 3s 冷却防并发重复。注入后重置全局计数。
+  if (isStateChange) {
+    const lockFile = path.join(os.tmpdir(), `${counterPrefix}lock-${sessionKey}`);
+    decision = withInjectLockAndCooldown(lockFile, doEmit);
+    debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'state-change-lockfile', decision });
+    if (decision === 'emitted') {
+      // 重置全局计数，避免注入后马上再触发周期注入
       const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
-      decision = withCountAndTimeLock(counterFile, doEmit);
-      debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'periodic-count-time', decision });
-      return decision;
+      try { fs.writeFileSync(counterFile, String(PERIODIC_MIN_CALLS - 1)); } catch (_) {}
     }
+    return decision;
   }
 
-  // 其他事件（当前无配置，预留直接注入）
-  decision = doEmit();
-  debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'other', decision });
-  return decision;
+  // 其他所有事件（UserPromptSubmit / PostToolUse 普通工具）：
+  // 统一计数器，每 PERIODIC_MIN_CALLS 次触发一次，首次必注入。
+  // 用互斥锁保护读-改-写原子性，用 lockfile+冷却防并发重复注入。
+  const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
+  const lockFile = path.join(os.tmpdir(), `${counterPrefix}periodic-lock-${sessionKey}`);
+  const COOLDOWN_MS = 1000;
+
+  let fd;
+  try {
+    fd = fs.openSync(lockFile, 'wx');
+  } catch (_) {
+    try {
+      const age = Date.now() - fs.statSync(lockFile).mtimeMs;
+      if (age < COOLDOWN_MS) { decision = 'cooldown-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
+      fs.unlinkSync(lockFile);
+      fd = fs.openSync(lockFile, 'wx');
+    } catch (_) { decision = 'race-skipped'; debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, decision }); return decision; }
+  }
+  try {
+    let count = 0;
+    try { count = parseInt(fs.readFileSync(counterFile, 'utf8'), 10) || 0; } catch (_) {}
+    count += 1;
+    // count % PERIODIC_MIN_CALLS === 1：首次(count=1)必注入，之后每 N 次注入一次
+    if (count % PERIODIC_MIN_CALLS === 1) {
+      fs.writeFileSync(counterFile, String(count));
+      decision = doEmit();
+    } else {
+      fs.writeFileSync(counterFile, String(count));
+      decision = 'throttled';
+    }
+    return decision;
+  } finally {
+    debugLog({ src: 'inject-core', phase: 'exit', event: eventName, toolShort: toolName, path: 'periodic', decision });
+    fs.closeSync(fd);
+    setTimeout(() => { try { fs.unlinkSync(lockFile); } catch (_) {} }, COOLDOWN_MS).unref();
+  }
 }
 
 module.exports = { STATE_CHANGING_TOOLS, shouldInjectThrottled, throttleByCounter, withInjectLockAndCooldown, withCountAndTimeLock, readStdinJson, toolShortName, injectIfNeeded };
