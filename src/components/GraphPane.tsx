@@ -197,6 +197,20 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
 
     // Apply collapse via hide/show, then layout only visible nodes
     applyCollapseState(cy, goals, collapsedIds);
+
+    // Build same-rank ordering constraints from dependency edges so that
+    // "depId" (the prerequisite) is placed to the LEFT of the goal that depends on it.
+    const visibleIds = new Set(cy.nodes(':visible').map(n => n.data('id') as string));
+    const constraints: { left: string; right: string }[] = [];
+    for (const goal of Object.values(goals)) {
+      if (!visibleIds.has(goal.id)) continue;
+      for (const depId of goal.dependencies ?? []) {
+        if (visibleIds.has(depId)) {
+          constraints.push({ left: depId, right: goal.id });
+        }
+      }
+    }
+
     const layout = cy.layout({
       name: 'dagre',
       eles: cy.nodes(':visible').add(cy.edges(':visible').filter('[edgeType="parent"]')),
@@ -205,6 +219,7 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
       animationDuration: 250,
       fit: false,
       padding: 30,
+      constraints,
     } as cytoscape.LayoutOptions);
     layout.on('layoutstop', () => cy.fit(undefined, 30));
     layout.run();
