@@ -218,7 +218,7 @@ function injectIfNeeded(sessionKey, eventName, payload, counterPrefix, interval,
     if (decision === 'emitted') {
       // 重置全局计数，避免注入后马上再触发周期注入
       const counterFile = path.join(os.tmpdir(), `${counterPrefix}periodic-${sessionKey}`);
-      try { fs.writeFileSync(counterFile, String(PERIODIC_MIN_CALLS - 1)); } catch (_) {}
+      try { fs.writeFileSync(counterFile, String(1)); } catch (_) {}
     }
     return decision;
   }
