@@ -7,10 +7,20 @@ import type { GoalSummary } from '@/types';
 
 cytoscape.use(cytoscapeDagre as cytoscape.Ext);
 
-const STATUS_COLORS: Record<string, string> = {
-  ready: '#e8a0a0', in_progress: '#e6b85c', blocked: '#e78284', done: '#76c893',
-  proposed: '#4a5060', review: '#b9a1e6', obsolete: '#4a5060',
+const STATUS_COLOR_VARS: Record<string, string> = {
+  ready: '--graph-status-ready',
+  in_progress: '--graph-status-in-progress',
+  blocked: '--graph-status-blocked',
+  done: '--graph-status-done',
+  proposed: '--graph-status-proposed',
+  review: '--graph-status-review',
+  obsolete: '--graph-status-obsolete',
 };
+
+function cssVar(name: string, fallback: string): string {
+  if (typeof window === 'undefined') return fallback;
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim() || fallback;
+}
 
 function topoSort(goals: Record<string, GoalSummary>): GoalSummary[] {
   const visited = new Set<string>();
@@ -101,19 +111,27 @@ function applyCollapseState(
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 function getStyle(): any[] {
+  const text = cssVar('--text', '#e6e0d8');
+  const nodeBg = cssVar('--graph-node-bg', '#17191d');
+  const selectedBg = cssVar('--graph-selected-bg', '#1f2228');
+  const selectedBorder = cssVar('--graph-selected-border', '#ffffff');
+  const edge = cssVar('--graph-edge', '#4a5060');
+  const dependency = cssVar('--graph-dependency', '#72602a');
+
   return [
-    { selector: 'node', style: { shape: 'roundrectangle', width: 'data(width)', height: 'label', 'padding-top': '10px', 'padding-bottom': '10px', 'padding-left': '12px', 'padding-right': '12px', label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 'data(textMaxWidth)', 'font-size': '12px', 'font-family': 'ui-monospace, monospace', color: '#e6e0d8', 'text-valign': 'center', 'text-halign': 'center', 'background-color': '#17191d', 'border-width': 1.5, 'border-color': '#4a5060' } },
-    ...Object.entries(STATUS_COLORS).map(([status, color]) => ({ selector: `node[status="${status}"]`, style: { 'border-color': color, opacity: status === 'done' || status === 'obsolete' ? 0.55 : 1 } })),
-    { selector: 'node:selected', style: { 'border-width': 2.5, 'border-color': '#ffffff', 'background-color': '#1f2228' } },
+    { selector: 'node', style: { shape: 'roundrectangle', width: 'data(width)', height: 'label', 'padding-top': '10px', 'padding-bottom': '10px', 'padding-left': '12px', 'padding-right': '12px', label: 'data(label)', 'text-wrap': 'wrap', 'text-max-width': 'data(textMaxWidth)', 'font-size': '12px', 'font-family': 'ui-monospace, monospace', color: text, 'text-valign': 'center', 'text-halign': 'center', 'background-color': nodeBg, 'border-width': 1.5, 'border-color': edge } },
+    ...Object.entries(STATUS_COLOR_VARS).map(([status, varName]) => ({ selector: `node[status="${status}"]`, style: { 'border-color': cssVar(varName, edge), opacity: status === 'done' || status === 'obsolete' ? 0.55 : 1 } })),
+    { selector: 'node:selected', style: { 'border-width': 2.5, 'border-color': selectedBorder, 'background-color': selectedBg } },
     { selector: 'node[?collapsed]', style: { 'border-style': 'dashed', 'border-width': 2 } },
-    { selector: 'edge[edgeType="parent"]', style: { 'line-style': 'solid', 'line-color': '#4a5060', 'target-arrow-color': '#4a5060', 'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, width: 1.5, 'curve-style': 'bezier' } },
-    { selector: 'edge[edgeType="dependency"]', style: { 'line-style': 'dashed', 'line-color': '#72602a', 'target-arrow-color': '#72602a', 'target-arrow-shape': 'vee', 'arrow-scale': 0.8, width: 1.5, opacity: 0.55, 'curve-style': 'bezier' } },
+    { selector: 'edge[edgeType="parent"]', style: { 'line-style': 'solid', 'line-color': edge, 'target-arrow-color': edge, 'target-arrow-shape': 'triangle', 'arrow-scale': 0.8, width: 1.5, 'curve-style': 'bezier' } },
+    { selector: 'edge[edgeType="dependency"]', style: { 'line-style': 'dashed', 'line-color': dependency, 'target-arrow-color': dependency, 'target-arrow-shape': 'vee', 'arrow-scale': 0.8, width: 1.5, opacity: 0.55, 'curve-style': 'bezier' } },
   ];
 }
 
 interface CuePos { id: string; x: number; y: number; collapsed: boolean; }
 
 interface Props {
+  themeMode: 'dark' | 'light';
   goals: Record<string, GoalSummary>;
   selectedId: string | null;
   collapsedIds: Set<string>;
@@ -122,7 +140,7 @@ interface Props {
   onClickBackground?: () => void;
 }
 
-export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleCollapse, onClickBackground }: Props) {
+export function GraphPane({ themeMode, goals, selectedId, collapsedIds, onSelect, onToggleCollapse, onClickBackground }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<cytoscape.Core | null>(null);
   const onSelectRef = useRef(onSelect);
@@ -176,6 +194,12 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
     cyRef.current = cy;
     return () => { ro.disconnect(); cy.destroy(); cyRef.current = null; };
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const cy = cyRef.current;
+    if (!cy) return;
+    cy.style(getStyle()).update();
+  }, [themeMode]);
 
   useEffect(() => {
     const cy = cyRef.current; if (!cy) return;
@@ -251,9 +275,9 @@ export function GraphPane({ goals, selectedId, collapsedIds, onSelect, onToggleC
               width: btnSize,
               height: btnSize,
               borderRadius: '50%',
-              border: `${Math.max(0.5, canvasZoom)}px solid ${collapsed ? '#e6b85c' : '#4a5060'}`,
-              background: '#17191d',
-              color: collapsed ? '#e6b85c' : '#8a9ab5',
+              border: `${Math.max(0.5, canvasZoom)}px solid ${collapsed ? 'var(--graph-status-in-progress)' : 'var(--graph-edge)'}`,
+              background: 'var(--graph-node-bg)',
+              color: collapsed ? 'var(--graph-status-in-progress)' : 'var(--graph-cue-text)',
               fontSize: Math.round(10 * canvasZoom),
               lineHeight: `${Math.round(12 * canvasZoom)}px`,
               cursor: 'pointer',

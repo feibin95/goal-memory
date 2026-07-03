@@ -193,7 +193,7 @@ export function GoalDetailForm({ goal, goals, onSaved, onDeleted, onAddChild, on
             <div className="field-group">
               <label className="field-label">
                 标题
-                <span style={{ marginLeft: 8, fontWeight: 400, color: 'var(--color-text-muted, #888)', fontSize: '0.85em' }}>#{goal.id}</span>
+                <span style={{ marginLeft: 8, fontWeight: 400, color: 'var(--muted)', fontSize: '0.85em' }}>#{goal.id}</span>
               </label>
               <input {...form.register('title')} type="text" />
               {errors.title && <span className="field-error">{errors.title.message}</span>}

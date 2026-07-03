@@ -11,16 +11,25 @@ interface NewRootForm {
   title: string; background: string; success_criteria: string; cost: number; ddl: string;
 }
 
+type ThemeMode = 'dark' | 'light';
+const THEME_STORAGE_KEY = 'goal-memory-theme';
+
+function isThemeMode(value: string | null): value is ThemeMode {
+  return value === 'dark' || value === 'light';
+}
+
 export default function App() {
   const [state, setState] = useState<AppState>({ goals: {} });
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [selectedGoal, setSelectedGoal] = useState<GoalDetail | null>(null);
   const [loading, setLoading] = useState(true);
+  const [themeMode, setThemeMode] = useState<ThemeMode>('dark');
   const [newRootModal, setNewRootModal] = useState(false);
   const [newRootForm, setNewRootForm] = useState<NewRootForm>({ title: '', background: '', success_criteria: '', cost: 3, ddl: '' });
   const [newRootError, setNewRootError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [collapsedIds, setCollapsedIds] = useState<Set<string>>(() => {
+    if (typeof window === 'undefined') return new Set<string>();
     try {
       const saved = localStorage.getItem('goal-collapsed-ids');
       return saved ? new Set<string>(JSON.parse(saved)) : new Set<string>();
@@ -29,6 +38,28 @@ export default function App() {
     }
   });
   const formDirtyRef = useRef(false);
+
+  useEffect(() => {
+    let saved: ThemeMode = 'dark';
+    try {
+      const stored = localStorage.getItem(THEME_STORAGE_KEY);
+      saved = isThemeMode(stored) ? stored : 'dark';
+    } catch {
+      saved = 'dark';
+    }
+    document.documentElement.dataset.theme = saved;
+    setThemeMode(saved);
+  }, []);
+
+  const selectTheme = (mode: ThemeMode) => {
+    document.documentElement.dataset.theme = mode;
+    try {
+      localStorage.setItem(THEME_STORAGE_KEY, mode);
+    } catch {
+      // Theme still applies for the current tab when persistence is unavailable.
+    }
+    setThemeMode(mode);
+  };
 
   useEffect(() => {
     localStorage.setItem('goal-collapsed-ids', JSON.stringify([...collapsedIds]));
@@ -117,12 +148,16 @@ export default function App() {
           <strong>Goal Memory</strong>
         </div>
         <div className="topbar-actions">
+          <div className="theme-segment" role="group" aria-label="主题">
+            <button type="button" className={themeMode === 'dark' ? 'active' : ''} aria-pressed={themeMode === 'dark'} onClick={() => selectTheme('dark')}>黑色</button>
+            <button type="button" className={themeMode === 'light' ? 'active' : ''} aria-pressed={themeMode === 'light'} onClick={() => selectTheme('light')}>白色</button>
+          </div>
           <button type="button" onClick={loadState} disabled={loading}>刷新</button>
           <button type="button" className="primary" onClick={() => setNewRootModal(true)}>新建根目标</button>
         </div>
       </header>
       <main className="workspace">
-        <GraphPane goals={state.goals} selectedId={selectedId} collapsedIds={collapsedIds} onSelect={handleSelectGoal} onToggleCollapse={handleToggleCollapse} onClickBackground={closeDetail} />
+        <GraphPane themeMode={themeMode} goals={state.goals} selectedId={selectedId} collapsedIds={collapsedIds} onSelect={handleSelectGoal} onToggleCollapse={handleToggleCollapse} onClickBackground={closeDetail} />
         {selectedGoal && (
           <DetailPane goal={selectedGoal} goals={state.goals} onRefresh={loadState}
             onClose={closeDetail}
