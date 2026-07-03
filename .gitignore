@@ -13,3 +13,4 @@ next-env.d.ts
 docs/ui-smoke.jpg
 config/mcporter.json
 .catpaw/
+.DS_Store
