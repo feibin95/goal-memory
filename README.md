@@ -122,6 +122,21 @@ npm run goalmem -- attempt files <ATTEMPT_ID>
 
 ---
 
+## Publishing the Plugin (marketplace.json)
+
+`.claude-plugin/marketplace.json` pins the plugin to a specific commit via `plugins[0].source.sha`. Although `source.ref` is `"main"`, Claude Code resolves the plugin using the pinned `sha`, not the moving branch tip — so pushing commits to `origin/main` alone does **not** ship the update to installed users.
+
+After pushing feature/fix commits to `origin/main`, bump the pin in a follow-up commit:
+
+1. Get the new `origin/main` HEAD's full 40-char hash: `git rev-parse HEAD` (after pushing).
+2. Set `plugins[0].source.sha` in `.claude-plugin/marketplace.json` to that hash.
+3. Commit with message `chore: update marketplace.json sha to latest commit`.
+4. Push.
+
+Until step 4 runs, the marketplace still serves the previously pinned commit.
+
+---
+
 ## Copy-Paste Demo Flow (TypeScript)
 
 ```bash
